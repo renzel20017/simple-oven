@@ -1,0 +1,14 @@
+{
+  "name": "simple-oven",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Simple Oven online bakeshop — static site + Cloudflare Pages Functions (Resend order email)",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "dev:cf": "npx wrangler pages dev",
+    "deploy": "npx wrangler pages deploy",
+    "test": "node tests/order.test.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,8 @@
+# Netlify settings (Cloudflare Pages uses wrangler.toml + functions/ instead — both work)
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = ""
+
+[functions]
+  node_bundler = "esbuild"
