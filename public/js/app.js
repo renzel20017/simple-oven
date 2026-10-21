@@ -515,7 +515,7 @@ function bindProduct(id) {
   }));
   // tilt main image
   const gm = $('#galMain');
-  if (finePointer && !reduceMotion) {
+  if (finePointer) {
     gm.addEventListener('pointermove', (e) => {
       const r = gm.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
       gm.style.transform = `rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
@@ -943,7 +943,7 @@ function initEffects() {
   cleanups.push(() => io.disconnect());
 
   // card tilt
-  if (finePointer && !reduceMotion) {
+  if (finePointer) {
     $$('[data-tilt]', app).forEach((c) => {
       c.addEventListener('pointermove', (e) => {
         const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
@@ -955,21 +955,22 @@ function initEffects() {
 
   // hero 3D parallax stage
   const stage = $('#stage');
-  if (stage && !reduceMotion) {
+  if (stage) { // runs even with Windows/Mac "reduce motion" on; only the idle sway is toned down
+    const calmK = reduceMotion ? .4 : 1;
     const inner = $('#stageInner'), floats = $$('.float', stage), coin = $('#coin'), shine = $('#coinShine');
     let tx = 0, ty = 0, cx = 0, cy = 0, sy = 0, raf, lastMove = -1e9;
     const onMove = (e) => { tx = (e.clientX / innerWidth - .5) * 2; ty = (e.clientY / innerHeight - .5) * 2; lastMove = performance.now(); };
     const loop = (now = 0) => {
       // no mouse (phones) or idle → a slow figure-eight sway so the scene always feels alive
-      if (now - lastMove > 2500) { const t = now / 1000; tx = Math.sin(t * .55) * .55; ty = Math.sin(t * 1.1) * .3; }
+      if (now - lastMove > 2500) { const t = now / 1000; tx = Math.sin(t * .55) * .55 * calmK; ty = Math.sin(t * 1.1) * .3 * calmK; }
       cx += (tx - cx) * .06; cy += (ty - cy) * .06;
-      const s = Math.min(1, scrollY / 600); sy += (s - sy) * .1;
+      const s = reduceMotion ? 0 : Math.min(1, scrollY / 600); sy += (s - sy) * .1;
       inner.style.transform = `rotateY(${cx * 7}deg) rotateX(${-cy * 5 + sy * 8}deg)`;
       floats.forEach((f) => { const d = +f.dataset.depth; f.style.transform = `translate3d(${cx * d * .18}px, ${cy * d * .14 - sy * d * .5}px, ${d}px)`; });
       if (coin) {
         const t = now / 1000;
         touchFx.step();
-        const T = touchFx, calm = 1 - Math.min(1, T.hold); // idle bob fades while the cookie is held
+        const T = touchFx, calm = (1 - Math.min(1, T.hold)) * calmK; // idle bob fades while the cookie is held
         coin.style.transform = `translateY(${(Math.sin(t * 1.3) * 6) * calm - sy * 30 + T.y}px) rotateX(${(-cy * 16 + 6) * calm + T.rx}deg) rotateY(${cx * 20 * calm + T.ry}deg) rotateZ(${-7 + Math.sin(t * .8) * 2.5 * calm + sy * 18}deg) scale(${T.sx}, ${T.sy})`;
         if (shine) shine.style.backgroundPosition = `${50 + cx * 40 + T.ry * 1.4}% ${45 + cy * 40 - T.rx * 1.4}%`;
       }
@@ -986,7 +987,6 @@ function initEffects() {
     const solo = st.classList.contains('stage--solo');
     const live = new Set();
     const spawnCrumbs = (ox, oy, n, power = 1) => {
-      if (reduceMotion) return;
       const r = st.getBoundingClientRect();
       for (let i = 0; i < n; i++) {
         if (live.size > 45) { const old = live.values().next().value; old.remove(); live.delete(old); }
@@ -1009,7 +1009,6 @@ function initEffects() {
       }
     };
     const puff = (ox, oy) => { // soft sugar-dust puff + sparkles where you touched
-      if (reduceMotion) return;
       const p = document.createElement('span'); p.className = 'dust'; p.style.left = ox + 'px'; p.style.top = oy + 'px'; st.appendChild(p);
       p.animate([{ transform: 'translate(-50%,-50%) scale(.2)', opacity: .9 }, { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 }], { duration: 700, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => p.remove();
       for (let i = 0; i < 10; i++) {
