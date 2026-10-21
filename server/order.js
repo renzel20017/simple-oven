@@ -190,7 +190,7 @@ export async function handleOrder(request, env) {
     order: {
       orderId: order.orderId, createdAt: order.createdAt, name: order.name, phone: order.phone,
       fulfillment: order.fulfillment, pickupBy: order.pickupBy, date: order.date, time: order.time, payment: order.payment,
-      pickupBy: order.pickupBy, zone: null, gift: order.gift ? { to: order.giftTo, hidePrices: order.giftHidePrices } : null,
+      zone: null, gift: order.gift ? { to: order.giftTo, hidePrices: order.giftHidePrices } : null,
       lines: order.lines.map(({ name, variant, qty, total }) => ({ name, variant, qty, total })),
       subtotal: order.subtotal,
     },
