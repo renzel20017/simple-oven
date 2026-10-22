@@ -178,9 +178,8 @@ Go to **`https://simple-oven.pages.dev/#/admin`** (there's also a small "Owner l
 Press **Save changes**. The website and the order server both use the new settings within seconds.
 
 ### One-time setup (about 3 minutes)
-1. Cloudflare → **Storage & Databases → KV → Create** (name it `simple-oven-settings`).
-2. **Workers & Pages → simple-oven → Settings → Bindings → Add → KV namespace**. Variable name: **`SETTINGS`**, namespace: `simple-oven-settings`. Save.
-3. **Settings → Variables and Secrets → Add** → type **Secret**, name **`ADMIN_PASSWORD`**, value: a long password. Save.
-4. **Deployments → latest → ⋯ → Retry deployment.**
+1. ✅ Done: the KV storage `simple-oven-settings` is created and connected in `wrangler.toml` (binding `SETTINGS`).
+2. **Settings → Variables and Secrets → Add** → type **Secret**, name **`ADMIN_PASSWORD`**, value: a long password. Save.
+3. **Deployments → latest → ⋯ → Retry deployment.**
 
 Free plan: up to 1,000 saves per day, more than enough. If the KV storage is missing, the site still works with the starting values from `products.js`.
