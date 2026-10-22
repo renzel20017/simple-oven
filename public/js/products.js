@@ -201,7 +201,7 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
@@ -212,6 +212,7 @@ export const ADDONS = {
 };
 const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
   prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
+  badges: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.badge || ''])),
   addonPrices: { wrap4: ADDONS.wrap.price['4'], wrap8: ADDONS.wrap.price['8'], ribbon: ADDONS.ribbon.price } }));
 export function defaultSettings() {
   const d = JSON.parse(JSON.stringify(DEFAULTS));
@@ -249,13 +250,14 @@ export function cleanSettings(raw) {
   const money = (x, lo, hi) => { const n = Math.round(Number(x)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
   if (r.prices && typeof r.prices === 'object') for (const p of PRODUCTS) for (const v of p.variants) { const n = money(r.prices?.[p.id]?.[v.id], 1, 100000); if (n != null) out.prices[p.id][v.id] = n; }
   if (r.addonPrices && typeof r.addonPrices === 'object') for (const k of ['wrap4', 'wrap8', 'ribbon']) { const n = money(r.addonPrices[k], 0, 10000); if (n != null) out.addonPrices[k] = n; }
+  if (r.badges && typeof r.badges === 'object') for (const p of PRODUCTS) if (typeof r.badges[p.id] === 'string') out.badges[p.id] = str(r.badges[p.id], 24);
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   return out;
 }
 export function applySettings(raw) {
   const s = cleanSettings(raw);
   for (const k of settingsKeys) if (k !== 'soldOut') SHOP[k] = s[k];
-  for (const p of PRODUCTS) { p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; }
+  for (const p of PRODUCTS) { p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; p.badge = s.badges[p.id] || null; }
   ADDONS.wrap.price['4'] = s.addonPrices.wrap4; ADDONS.wrap.price['8'] = s.addonPrices.wrap8; ADDONS.ribbon.price = s.addonPrices.ribbon;
   return s;
 }

@@ -1073,3 +1073,5 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .adm-price__vars { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .adm-price__vars label { justify-content: space-between; }
 .adm-peso .input { width: 78px; min-height: 38px; }
+.adm-badge { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; color: var(--ink-2); }
+.adm-badge .input { flex: 1; min-height: 38px; }
