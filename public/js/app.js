@@ -144,18 +144,20 @@ function boxMood(cookies, bars) {
 }
 // satin bow for the tied box (two loops, knot and tails with soft shading)
 const satinBow = `<svg viewBox="0 0 120 96" aria-hidden="true"><defs>
-  <linearGradient id="sbL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a2a30"/><stop offset=".45" stop-color="#5a1d22"/><stop offset=".7" stop-color="#8a3a40"/><stop offset="1" stop-color="#3e1216"/></linearGradient>
-  <linearGradient id="sbR" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a2a30"/><stop offset=".45" stop-color="#5a1d22"/><stop offset=".7" stop-color="#8a3a40"/><stop offset="1" stop-color="#3e1216"/></linearGradient>
-  <linearGradient id="sbT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a161a"/><stop offset=".5" stop-color="#6e2429"/><stop offset="1" stop-color="#3a1014"/></linearGradient>
-  <radialGradient id="sbK" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#8c3c42"/><stop offset="1" stop-color="#3e1216"/></radialGradient></defs>
+  <linearGradient id="sbL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a0f13"/><stop offset=".28" stop-color="#6a2229"/><stop offset=".42" stop-color="#c47680"/><stop offset=".5" stop-color="#8e3c44"/><stop offset=".75" stop-color="#521a1f"/><stop offset="1" stop-color="#2e0b0e"/></linearGradient>
+  <linearGradient id="sbR" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a0f13"/><stop offset=".28" stop-color="#6a2229"/><stop offset=".42" stop-color="#c47680"/><stop offset=".5" stop-color="#8e3c44"/><stop offset=".75" stop-color="#521a1f"/><stop offset="1" stop-color="#2e0b0e"/></linearGradient>
+  <linearGradient id="sbT" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2e0b0e"/><stop offset=".35" stop-color="#6a2229"/><stop offset=".5" stop-color="#b0606a"/><stop offset=".65" stop-color="#6a2229"/><stop offset="1" stop-color="#2e0b0e"/></linearGradient>
+  <radialGradient id="sbK" cx=".38" cy=".3" r=".75"><stop offset="0" stop-color="#d68a94"/><stop offset=".35" stop-color="#8e3c44"/><stop offset="1" stop-color="#2e0b0e"/></radialGradient></defs>
   <path d="M56 50 C40 70 30 84 26 94 L38 90 L42 96 C48 82 54 66 60 54Z" fill="url(#sbT)"/>
   <path d="M64 50 C80 70 92 82 98 92 L86 90 L84 96 C76 82 68 66 60 54Z" fill="url(#sbT)"/>
   <path d="M58 46 C44 22 14 14 8 30 C2 46 26 60 58 52Z" fill="url(#sbL)"/>
   <path d="M62 46 C76 22 106 14 112 30 C118 46 94 60 62 52Z" fill="url(#sbR)"/>
-  <path d="M54 46 C40 32 22 26 16 32" fill="none" stroke="#a8545a" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
-  <path d="M66 46 C80 32 98 26 104 32" fill="none" stroke="#a8545a" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
-  <ellipse cx="60" cy="49" rx="9.5" ry="8" fill="url(#sbK)"/>
-  <path d="M55 45 C58 43 62 43 65 45" fill="none" stroke="#b0606a" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+  <path d="M56 47 C42 34 24 28 16 33" fill="none" stroke="#f0b5bc" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+  <path d="M64 47 C78 34 96 28 104 33" fill="none" stroke="#f0b5bc" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+  <path d="M50 52 C36 56 22 52 14 42" fill="none" stroke="#2a0a0d" stroke-width="1.4" opacity=".45"/>
+  <path d="M70 52 C84 56 98 52 106 42" fill="none" stroke="#2a0a0d" stroke-width="1.4" opacity=".45"/>
+  <ellipse cx="60" cy="49" rx="9.5" ry="8.5" fill="url(#sbK)"/>
+  <path d="M54.5 45 C58 42.5 62 42.5 65.5 45" fill="none" stroke="#f3c0c6" stroke-width="1.4" stroke-linecap="round" opacity=".75"/>
 </svg>`;
 function bakeBoxHTML({ closed = false, tag = '' } = {}) {
   const pieces = boxPieces();
