@@ -669,11 +669,10 @@ function payNowPanel() {
   const methods = [p.gcashNumber && 'GCash', p.bankAccountNumber && 'Bank transfer'].filter(Boolean);
   return `<div class="panel">
           <h2><span class="num">4</span>Pay now</h2>
-          <p class="fine">Send <b>${peso(cart.subtotal())}</b>, then add your reference number and screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
+          <p class="fine">Send <b>${peso(cart.subtotal())}</b>, then upload your payment screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
           ${methods.length > 1 ? `<div class="toggle" role="radiogroup" aria-label="Pay with" style="margin-top:12px">${methods.map((m, i) => `<label><input type="radio" name="payment" value="${m}" ${i ? '' : 'checked'}><span><b>${m === 'Bank transfer' ? esc(p.bankName || m) : m}</b></span></label>`).join('')}</div>` : `<input type="hidden" name="payment" value="${methods[0]}">`}
           <div class="paycards" id="coPay">${payDetailsHTML(methods[0], true)}</div>
           <div class="fields" style="margin-top:14px">
-            <div class="field field--full"><label for="f-payRef">Reference number</label><input class="input" id="f-payRef" name="payRef" autocomplete="off" autocapitalize="characters" maxlength="40" placeholder="e.g. 1012 345 678 901"><span class="hint">It's on your GCash / bank receipt after you pay.</span><span class="err" id="e-payRef"></span></div>
             <div class="field field--full"><span class="label-like">Payment screenshot</span>
               <label class="drop" id="coDrop" for="co-file">
                 <input type="file" id="co-file" accept="image/*,application/pdf">
@@ -755,7 +754,6 @@ function validate(d) {
   else if (d.date > maxDate()) e.date = 'That’s too far ahead. Please pick an earlier date.';
   else if (isClosedDate(d.date)) e.date = 'Sorry, we’re closed that day. Please pick another date.';
   if (mustPayFirst()) {
-    if (!/^[A-Z0-9-]{6,30}$/.test((d.payRef || '').replace(/\s+/g, '').toUpperCase())) e.payRef = 'Please enter the reference number from your receipt.';
     if (!d.proof) e.proof = 'Please upload the screenshot of your payment.';
   }
   if (d.gift === 'on') {
@@ -929,7 +927,7 @@ function viewThanks() {
       <p class="lead" style="margin-top:16px">Your order <b>${esc(o.orderId)}</b> has been sent to us${when ? ` for <b>${esc(when)}</b>` : ''}. Take a screenshot of this page for reference.</p>
       <ol class="next">
         <li><b>1.</b>We'll message you to confirm your order. Pick-up is at ${SHOP.pickup.mapUrl ? `<a href="${esc(SHOP.pickup.mapUrl)}" target="_blank" rel="noopener">${esc(SHOP.pickup.place)} (map pin)</a>` : esc(SHOP.pickup.place)}.</li>
-        <li><b>2.</b>${o.paid ? `We received your payment screenshot${o.payRef ? ` (ref ${esc(o.payRef)})` : ''}. We'll check it and confirm your date.` : 'Send your payment and upload the screenshot below. Your date is booked once we receive it.'}</li>
+        <li><b>2.</b>${o.paid ? `We received your payment screenshot. We'll check it and confirm your date.` : 'Send your payment and upload the screenshot below. Your date is booked once we receive it.'}</li>
         <li><b>3.</b>We bake it fresh. ${o.pickupBy === 'rider' ? `Book your rider when we tell you it's ready.` : 'Pick it up and enjoy!'}</li>
       </ol>
       ${cash || o.paid ? '' : `<section class="panel paypanel">

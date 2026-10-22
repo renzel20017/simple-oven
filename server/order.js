@@ -59,7 +59,6 @@ export function validateOrder(body) {
   // pay-first safeguard: a reference number + payment screenshot are required with every order
   o.paidUpfront = mustPayFirst();
   if (o.paidUpfront) {
-    if (!/^[A-Z0-9-]{6,30}$/.test(o.payRef)) errors.payRef = 'Please enter the reference number from your GCash / bank receipt.';
     const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(b.proof || ''));
     if (!m) errors.proof = 'Please upload the screenshot of your payment.';
     else if (m[2].length * 3 / 4 > 3 * 1024 * 1024) errors.proof = 'That screenshot is too large. Please choose a smaller one.';
@@ -121,7 +120,7 @@ export function ownerEmail(o) {
         ${row('Mobile', `<a href="tel:${esc(tel)}" style="color:#8b1d24">${esc(o.phone)}</a>`)}
         ${row('Email', o.email ? `<a href="mailto:${esc(o.email)}" style="color:#8b1d24">${esc(o.email)}</a>` : '')}
         ${row('IG / FB', esc(o.social))}
-        ${row('Payment', esc(o.payment) + (o.payRef ? ` · ref <b>${esc(o.payRef)}</b><br><span style="color:#7b6a5c;font-weight:400">Screenshot attached. Check that the money is in your ${esc(o.payment)} app before baking.</span>` : ''))}
+        ${row('Payment', esc(o.payment) + (o.paidUpfront ? `<br><span style="color:#7b6a5c;font-weight:400">Screenshot attached. Check that the money is in your ${esc(o.payment)} app before baking.</span>` : ''))}
         ${row('Notes', esc(o.notes).replace(/\n/g, '<br>'))}
       </table>
       ${o.gift ? `<h2 style="font-family:Georgia,serif;font-size:19px;margin:22px 0 8px">🎁 Gift for</h2><table style="border-collapse:collapse;font-size:15px">
@@ -140,10 +139,10 @@ export function ownerEmail(o) {
     o.fulfillment === 'delivery' ? `Rider fee: ${feeText(o.zoneInfo)} — ${o.zoneInfo?.label}` : null,
     '',
     `Name: ${o.name}`, `Mobile: ${o.phone}`, o.email ? `Email: ${o.email}` : null, o.social ? `IG/FB: ${o.social}` : null,
-    o.fulfillment === 'delivery' ? `Address: ${o.address}` : null, `Payment: ${o.payment}${o.payRef ? ` · ref ${o.payRef} (screenshot attached — check your app before baking)` : ''}`, o.notes ? `Notes: ${o.notes}` : null,
+    o.fulfillment === 'delivery' ? `Address: ${o.address}` : null, `Payment: ${o.payment}${o.paidUpfront ? ' (screenshot attached — check your app before baking)' : ''}`, o.notes ? `Notes: ${o.notes}` : null,
     o.gift && o.giftPhone ? `Recipient mobile: ${o.giftPhone}` : null, o.gift && o.giftNote ? `Gift note: ${o.giftNote}` : null,
   ].filter((x) => x != null).join('\n');
-  return { html, text, subject: `${o.gift ? '🎁' : '🍪'} New order ${o.orderId} · ${o.name} · ${peso(o.subtotal)}${o.payRef ? ' · 💸 paid, please verify' : ''}` };
+  return { html, text, subject: `${o.gift ? '🎁' : '🍪'} New order ${o.orderId} · ${o.name} · ${peso(o.subtotal)}${o.paidUpfront ? ' · 💸 paid, please verify' : ''}` };
 }
 
 function customerEmail(o) {
@@ -182,9 +181,12 @@ export async function handleOrder(request, env) {
 
   order.orderId = makeOrderId();
   order.createdAt = Date.now();
-  if (order.payRef) {
-    const used = await refUsed(env, order.payRef);
-    if (used) return json(422, { ok: false, error: `That reference number was already used for order ${used}. Please check your receipt.`, fields: { payRef: 'Already used for another order.' } });
+  // the same payment screenshot can't be used for two orders
+  if (order.proof) {
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(order.proof.base64));
+    order.proofHash = [...new Uint8Array(h)].slice(0, 16).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const used = await refUsed(env, 'img:' + order.proofHash);
+    if (used) return json(422, { ok: false, error: `That payment screenshot was already used for order ${used}. Please upload the receipt for this order.`, fields: { proof: 'Already used for another order.' } });
   }
 
   try {
@@ -196,13 +198,13 @@ export async function handleOrder(request, env) {
     return json(502, { ok: false, error: 'We couldn’t send your order right now.' });
   }
   limiter.hit(ip);
-  await rememberRef(env, order.payRef, order.orderId);
+  if (order.proofHash) await rememberRef(env, 'img:' + order.proofHash, order.orderId);
 
   // extras that must never break a successful order
   const extras = [logToSheet(env, { action: 'order', order: {
     orderId: order.orderId, createdAt: new Date(order.createdAt).toISOString(), name: order.name, phone: order.phone, email: order.email, social: order.social,
     fulfillment: order.pickupBy === 'rider' ? 'Pick-up (own rider)' : 'Pick-up', date: order.date, time: order.time, address: '', zone: '',
-    items: order.lines.map((l) => `${l.qty}× ${l.name} (${l.variant})`).join(', '), subtotal: order.subtotal, payment: order.payment + (order.payRef ? ` · ref ${order.payRef} (screenshot in email)` : ''),
+    items: order.lines.map((l) => `${l.qty}× ${l.name} (${l.variant})`).join(', '), subtotal: order.subtotal, payment: order.payment + (order.paidUpfront ? ' (screenshot in email)' : ''),
     gift: order.gift ? `For ${order.giftTo}${order.giftNote ? ' — “' + order.giftNote + '”' : ''}` : '', notes: order.notes,
   } })];
   if (env.SEND_CUSTOMER_CONFIRMATION === 'true' && order.email) {

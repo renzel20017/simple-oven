@@ -59,7 +59,7 @@ assert.equal(r.order.lines[1].total, 580 + 10, 'bars: no wrap, ribbon only');
 assert.match(r.order.lines[0].variant, /Individually packed · Ribbon/);
 applySettings({ ...defaultSettings(), payment: { gcashName: 'A', gcashNumber: '0917 000 0000' } });
 r = validateOrder({ ...base, payRef: '', proof: '', items: one });
-assert.ok(r.errors.proof && r.errors.payRef, 'pay-first: screenshot + reference required');
+assert.ok(r.errors.proof && !r.errors.payRef, 'pay-first: screenshot required, no reference needed');
 r = validateOrder({ ...base, items: one, payRef: '1012 345 678 901', proof: 'data:image/png;base64,iVBORw0KGgo=' });
 assert.deepEqual(r.errors, {}, 'pay-first: valid proof accepted'); assert.equal(r.order.payRef, '1012345678901');
 applySettings({ ...defaultSettings(), payment: { gcashNumber: '0917' }, requirePayment: false });
