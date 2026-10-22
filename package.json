@@ -6,8 +6,8 @@
   "description": "Simple Oven online bakeshop — static site + Cloudflare Pages Functions (Resend order email)",
   "scripts": {
     "dev": "node dev-server.mjs",
-    "dev:cf": "npx wrangler pages dev",
-    "deploy": "npx wrangler pages deploy",
+    "dev:cf": "npx wrangler pages dev public --kv SETTINGS --compatibility-date 2025-09-01",
+    "deploy": "npx wrangler pages deploy public --project-name simple-oven",
     "test": "node tests/order.test.mjs"
   },
   "engines": { "node": ">=18" }

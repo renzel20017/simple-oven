@@ -5,6 +5,9 @@
 RESEND_API_KEY=re_your_key_here
 ORDER_TO_EMAIL=your-orders-inbox@example.com
 
+# Password for the owner page (/#/admin)
+ADMIN_PASSWORD=choose-a-long-password
+
 # Optional (need a domain verified in Resend):
 # ORDER_FROM_EMAIL=Simple Oven <orders@yourdomain.com>
 # SEND_CUSTOMER_CONFIRMATION=true

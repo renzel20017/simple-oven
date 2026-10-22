@@ -1,4 +1,5 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf } from './products.js';
+import { cookieSVG, barSVG } from './cookies.js';
 
 /* ───────────────────────── helpers ───────────────────────── */
 const $ = (s, el = document) => el.querySelector(s);
@@ -98,7 +99,7 @@ function flyTo(fromEl, p, done) {
   const a = fromEl.getBoundingClientRect(), b = $('#cartBtn').getBoundingClientRect();
   const el = document.createElement('div');
   el.className = 'fly';
-  el.innerHTML = TOKEN_IMG[p.id] ? `<img src="${cut(TOKEN_IMG[p.id])}" alt="">` : p.sampler ? `<img src="${cut('tok-brown-butter')}" alt="">` : artSVG(p.art);
+  el.innerHTML = tokenArt(p.sampler ? 'brown-butter' : p.id);
   
   document.body.appendChild(el);
   const sx = a.left + a.width / 2 - 35, sy = a.top + a.height / 2 - 35, ex = b.left + b.width / 2 - 35, ey = b.top + b.height / 2 - 35;
@@ -111,12 +112,12 @@ function flyTo(fromEl, p, done) {
 
 
 /* ───────────────────────── the cookie box (cart visual) ───────────────────────── */
-const TOKEN_IMG = { 'brown-butter': 'tok-brown-butter', 'red-velvet': 'tok-red-velvet', 'dark-chocolate-revel': 'tok-revel', 'biscoff-revel': 'tok-revel' };
-const SAMPLER_MIX = ['brown-butter', 'red-velvet', 'birthday-bomb', 'white-cookie-butter'];
+const tokenArt = (pid) => (findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // illustrated, so every flavor looks the same style
+const SAMPLER_MIX = ['brown-butter', 'red-velvet', 'birthday-bomb', 'white-choco-oreo'];
 function tokenHTML(pid, i, isNew) {
   const p = findProduct(pid);
   const bar = p?.category === 'bars';
-  const inner = TOKEN_IMG[pid] ? `<img src="${cut(TOKEN_IMG[pid])}" alt="">` : artSVG(p?.art || 'butter');
+  const inner = tokenArt(pid);
   return `<span class="tok${bar ? ' tok--bar' : ''}${isNew ? ' tok--new' : ''}" style="--i:${i};--r:${((i * 47) % 30) - 15}deg" title="${esc(p?.name || '')}">${inner}</span>`;
 }
 let lastAddedKey = null, addedT;
@@ -372,7 +373,7 @@ function heroSticker() {
 const HEROES = { paper: heroPaper, night: heroNight, sticker: heroSticker };
 
 function viewHome() {
-  const best = ['brown-butter', 'red-velvet', 'birthday-bomb', 'white-cookie-butter'].map(findProduct);
+  const best = ['brown-butter', 'red-velvet', 'birthday-bomb', 'white-choco-oreo'].map(findProduct);
   const names = PRODUCTS.map((p) => p.name);
   const tick = [...names, ...names].map((n) => `<span>${esc(n)}</span>`).join('');
   return `<div class="view">
@@ -583,16 +584,18 @@ function receiptHTML({ cta = false, order = null } = {}) {
 function refreshReceipt() { const r = $('#receipt'); if (r) r.outerHTML = receiptHTML(); if (!cart.items.length && location.hash.startsWith('#/checkout')) route(); }
 
 /* ───────────── checkout ───────────── */
-const todayLocal = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
-const minDate = () => addDays(todayLocal(), SHOP.minLeadDays);
+const minDate = () => earliestDate();
+const maxDate = () => latestDate();
+const fmtTime = (hm) => { const [h, m] = hm.split(':').map(Number); return `${h % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${h < 12 ? 'am' : 'pm'}`; };
 const fmtChip = (ds) => { const d = new Date(ds + 'T00:00:00'); return { wd: d.toLocaleDateString('en-PH', { weekday: 'short' }), day: d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) }; };
 
 function viewCheckout() {
   if (!cart.items.length) return viewCart();
   const saved = store.get('so_customer', {});
   const v = (k) => esc(saved[k] || '');
-  const dates = nextOpenDates(minDate(), 6);
+  const dates = nextOpenDates(minDate(), 6).filter((d) => d <= maxDate());
   const closedSoon = SHOP.closedDates.filter((d) => d >= minDate() && d <= addDays(minDate(), 45));
+  const leadTxt = SHOP.minLeadDays <= 0 ? '' : SHOP.minLeadDays === 1 ? 'Please order at least 1 day before pick-up' : `Please order at least ${SHOP.minLeadDays} days before pick-up`;
   return `<div class="view wrap">
     <div class="pagehead pagehead--tight"><h1 class="eyebrow">Checkout</h1></div>
     <div class="co">
@@ -613,12 +616,12 @@ function viewCheckout() {
           <input type="hidden" name="fulfillment" value="pickup">
           <div class="pickspot">
             <span class="pickspot__pin" aria-hidden="true">📍</span>
-            <div><b>Pick up at ${esc(SHOP.pickup.place)}</b><span>${esc(SHOP.pickup.city)} · we'll send the exact pin when we confirm your order</span></div>
+            <div><b>Pick up at ${esc(SHOP.pickup.place)}</b><span>${esc(SHOP.pickup.city)}</span>${SHOP.pickup.mapUrl ? `<a class="pickspot__map" href="${esc(SHOP.pickup.mapUrl)}" target="_blank" rel="noopener">Open map pin ↗</a>` : ''}</div>
           </div>
           <span class="label-like" id="byLbl" style="display:block;margin:16px 0 8px">Who's picking up?</span>
           <div class="toggle" role="radiogroup" aria-labelledby="byLbl">
-            <label><input type="radio" name="pickupBy" value="self" ${saved.pickupBy !== 'rider' ? 'checked' : ''}><span><b>I'll pick it up</b><i>Free</i></span></label>
-            <label><input type="radio" name="pickupBy" value="rider" ${saved.pickupBy === 'rider' ? 'checked' : ''}><span><b>I'll send a rider</b><i>Want it delivered?</i></span></label>
+            <label><input type="radio" name="pickupBy" value="self" ${saved.pickupBy !== 'rider' ? 'checked' : ''}><span><b>I'll pick it up</b></span></label>
+            <label><input type="radio" name="pickupBy" value="rider" ${saved.pickupBy === 'rider' ? 'checked' : ''}><span><b>I'll send a rider</b></span></label>
           </div>
           <div class="ridernote" id="riderNote" hidden>
             <b>🛵 Please book your own rider</b>
@@ -626,16 +629,16 @@ function viewCheckout() {
           </div>
           <div class="fields" style="margin-top:16px">
             <div class="field field--full">
-              <span class="label-like" id="dateLbl">Preferred date</span>
+              <span class="label-like" id="dateLbl">Pick-up date</span>${leadTxt ? `<span class="hint" style="margin:0 0 8px">${leadTxt}${SHOP.orderCutoff ? ` (until ${fmtTime(SHOP.orderCutoff)} the day before)` : ''}.</span>` : ''}
               <div class="datechips" role="radiogroup" aria-labelledby="dateLbl">
                 ${dates.map((d, i) => { const c = fmtChip(d); return `<label class="datechip"><input type="radio" name="date" value="${d}"><span><i>${c.wd}</i><b>${c.day}</b></span></label>`; }).join('')}
                 <label class="datechip datechip--other"><input type="radio" name="date" value="other"><span><i>Other</i><b>date…</b></span></label>
               </div>
-              <input class="input" id="f-date-other" name="dateOther" type="date" min="${minDate()}" hidden aria-label="Pick another date">
+              <input class="input" id="f-date-other" name="dateOther" type="date" min="${minDate()}" max="${maxDate()}" hidden aria-label="Pick another date">
               ${closedSoon.length ? `<span class="hint">Closed on: ${closedSoon.map((d) => fmtChip(d).day).join(', ')}${SHOP.closedWeekdays.length ? ' and every ' + SHOP.closedWeekdays.map((w) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][w]).join(', ') : ''}.</span>` : ''}
               <span class="err" id="e-date"></span>
             </div>
-            <div class="field field--full"><label for="f-time">Preferred time</label><select class="input" id="f-time" name="time"><option>Morning (9am – 12nn)</option><option>Afternoon (12nn – 5pm)</option><option>Evening (5pm – 8pm)</option><option>Any time</option></select></div>
+            <div class="field field--full"><label for="f-time">Pick-up time</label><select class="input" id="f-time" name="time">${SHOP.pickupTimes.map((t) => `<option ${saved.time === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
           </div>
         </div>
 
@@ -655,7 +658,7 @@ function viewCheckout() {
           <h2><span class="num">4</span>Payment & notes</h2>
           <p class="fine">No payment yet. After you place your order you'll see how to pay, and you can upload your payment screenshot right there.</p>
           <div class="fields">
-            <div class="field field--full"><label for="f-pay">How will you pay?</label><select class="input" id="f-pay" name="payment"><option>GCash</option><option>Bank transfer</option><option>Cash on pick-up</option></select><span class="err" id="e-payment"></span></div>
+            <div class="field field--full"><label for="f-pay">How will you pay?</label><select class="input" id="f-pay" name="payment"><option>GCash</option><option>Bank transfer</option></select><span class="err" id="e-payment"></span></div>
             <div class="field field--full"><label for="f-notes">Notes <span class="opt">(optional)</span></label><textarea class="input" id="f-notes" name="notes" maxlength="500" placeholder="Allergies, special requests…"></textarea></div>
           </div>
           <div class="hp" aria-hidden="true"><label>Leave this empty<input name="company" tabindex="-1" autocomplete="off"></label></div>
@@ -711,7 +714,8 @@ function validate(d) {
   if (digits.length < 10 || digits.length > 13) e.phone = 'Please enter a valid mobile number (e.g. 0917 123 4567).';
   if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) e.email = 'That email doesn’t look right.';
   if (!d.date) e.date = 'Please pick a date.';
-  else if (d.date < minDate()) e.date = 'Please pick a later date.';
+  else if (d.date < minDate()) e.date = 'Orders need at least a day’s notice. Please pick a later date.';
+  else if (d.date > maxDate()) e.date = 'That’s too far ahead. Please pick an earlier date.';
   else if (isClosedDate(d.date)) e.date = 'Sorry, we’re closed that day. Please pick another date.';
   if (d.gift === 'on') {
     if (!d.giftTo || d.giftTo.trim().length < 2) e.giftTo = 'Who is the gift for?';
@@ -881,7 +885,7 @@ function viewThanks() {
       <h1 class="h2">Thank you, <em>${esc((o.name || '').split(' ')[0])}</em>!</h1>
       <p class="lead" style="margin-top:16px">Your order <b>${esc(o.orderId)}</b> has been sent to us${when ? ` for <b>${esc(when)}</b>` : ''}. Take a screenshot of this page for reference.</p>
       <ol class="next">
-        <li><b>1.</b>We'll message you to confirm your order and send the pick-up pin for ${esc(SHOP.pickup.place)}.</li>
+        <li><b>1.</b>We'll message you to confirm your order. Pick-up is at ${SHOP.pickup.mapUrl ? `<a href="${esc(SHOP.pickup.mapUrl)}" target="_blank" rel="noopener">${esc(SHOP.pickup.place)} (map pin)</a>` : esc(SHOP.pickup.place)}.</li>
         <li><b>2.</b>${cash ? 'Pay in cash when you pick up your box.' : 'Send your payment and upload the screenshot below. Your date is booked once we receive it.'}</li>
         <li><b>3.</b>We bake it fresh. ${o.pickupBy === 'rider' ? `Book your rider when we tell you it's ready.` : 'Pick it up and enjoy!'}</li>
       </ol>
@@ -1092,8 +1096,221 @@ function initEffects() {
   }
 }
 
+/* ───────────── owner page (#/admin) ─────────────
+   Lets the owner change what's available, pick-up days/times and ordering rules from her phone.
+   Saved on Cloudflare (KV) through /api/admin, protected by the ADMIN_PASSWORD secret. */
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const adm = { pw: sstore.get('so_admin', ''), s: null, saved: '', storage: true, busy: false };
+const demoSettings = () => { try { return JSON.parse(sessionStorage.getItem('so_demo_settings')) || null; } catch { return null; } };
+async function adminCall(action, extra = {}) {
+  if (window.SO_DEMO) { // preview page: no server, keep changes in this tab only
+    if (action === 'save') { try { sessionStorage.setItem('so_demo_settings', JSON.stringify(extra.settings)); } catch {} return { ok: true, settings: { ...cleanSettings(extra.settings), updatedAt: new Date().toISOString() } }; }
+    return { ok: true, storage: true, settings: cleanSettings(demoSettings() || defaultSettings()) };
+  }
+  const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: adm.pw, action, ...extra }), signal: AbortSignal.timeout(15000) });
+  const j = await res.json().catch(() => ({ ok: false, error: 'Something went wrong. Please try again.' }));
+  return j;
+}
+const draftEarliest = (s, now = manilaNow()) => { let d = addDays(now.date, s.minLeadDays); if (s.orderCutoff && now.time >= s.orderCutoff) d = addDays(d, 1); return d; };
+const draftClosed = (s, d) => s.closedDates.includes(d) || (s.closedWeekdays.includes(weekdayOf(d)) && !s.openDates.includes(d));
+const dirty = () => adm.s && JSON.stringify(cleanSettings(adm.s)) !== adm.saved;
+
+function viewAdmin() {
+  return `<div class="view wrap admin"><div class="pagehead pagehead--tight"><h1 class="eyebrow">Owner page</h1></div><div id="adm"></div></div>`;
+}
+function bindAdmin() {
+  const box = $('#adm');
+  const onUnload = (e) => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } };
+  addEventListener('beforeunload', onUnload); cleanups.push(() => removeEventListener('beforeunload', onUnload));
+  if (adm.s) return renderAdmin(box);
+  if (adm.pw) return login(box, adm.pw, true);
+  renderLogin(box);
+}
+function renderLogin(box, msg = '') {
+  box.innerHTML = `<form class="panel adm-login" id="admLogin" novalidate>
+    <h2>Hi! Please log in</h2>
+    <p class="fine">This page is only for the Simple Oven owner. Here you can change what's available and when customers can pick up.</p>
+    <div class="field"><label for="a-pw">Password</label><input class="input" id="a-pw" type="password" autocomplete="current-password" required><span class="err" id="a-err">${esc(msg)}</span></div>
+    <button class="btn" type="submit" id="a-go">Log in</button>
+  </form>`;
+  $('#admLogin').addEventListener('submit', (e) => { e.preventDefault(); const pw = $('#a-pw').value; if (pw) login(box, pw); });
+  $('#a-pw').focus();
+}
+async function login(box, pw, silent) {
+  adm.pw = pw;
+  const btn = $('#a-go'); if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  let j;
+  try { j = await adminCall('login'); } catch { j = { ok: false, error: 'Can’t reach the website right now. Check your internet and try again.' }; }
+  if (!j.ok) { adm.pw = ''; sstore.set('so_admin', ''); return renderLogin(box, silent ? '' : j.error); }
+  sstore.set('so_admin', pw);
+  adm.s = cleanSettings(j.settings); adm.saved = JSON.stringify(adm.s); adm.storage = j.storage !== false; adm.updatedAt = j.settings.updatedAt;
+  renderAdmin(box);
+}
+
+function calHTML(s) {
+  const now = manilaNow(), first = draftEarliest(s, now);
+  const end = addDays(now.date, Math.min(s.maxAheadDays, 92));
+  let html = '', m0 = now.date.slice(0, 7) + '-01';
+  while (m0 <= end) {
+    const title = new Date(m0 + 'T00:00:00Z').toLocaleDateString('en-PH', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const wk = addDays(now.date, -weekdayOf(now.date)); // skip weeks that are already over
+    let d = m0 < wk ? wk : m0, cells = '<span class="cal__d is-past"></span>'.repeat(weekdayOf(d));
+    while (d.slice(0, 7) === m0.slice(0, 7)) {
+      const dn = +d.slice(8);
+      if (d < now.date || d > end) cells += `<span class="cal__d is-past">${dn}</span>`;
+      else {
+        const closed = draftClosed(s, d), early = d < first;
+        cells += `<button type="button" class="cal__d${closed ? ' is-closed' : ''}${early ? ' is-early' : ''}${d === now.date ? ' is-today' : ''}" data-day="${d}" aria-pressed="${!closed}" aria-label="${d}${closed ? ' closed' : ' open'}">${dn}</button>`;
+      }
+      d = addDays(d, 1);
+    }
+    html += `<div class="cal__month">${title}</div><div class="cal__row cal__head">${WD.map((w) => `<span>${w[0]}</span>`).join('')}</div><div class="cal__row">${cells}</div>`;
+    m0 = d;
+  }
+  return `<div class="cal">${html}</div>`;
+}
+function renderAdmin(box) {
+  const s = adm.s;
+  const ago = adm.updatedAt ? new Date(adm.updatedAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  box.innerHTML = `
+  ${adm.storage ? '' : `<div class="adm-warn"><b>Saving isn't switched on yet.</b> You can look around, but changes can't be saved until the KV storage is connected in Cloudflare (README step 10).</div>`}
+  <div class="adm-top"><span class="fine">${ago ? `Last saved ${esc(ago)}` : 'Using the starting settings'}</span><button type="button" class="linkbtn" id="admOut">Log out</button></div>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">1</span>What's available</h2>
+    <p class="fine">Switch off anything you can't bake right now. Customers will see “Sold out” and can't order it.</p>
+    <div class="adm-list">${PRODUCTS.map((p) => `<label class="adm-item">
+      <span class="adm-item__img">${p.img ? `<img src="${img(p.img, true)}" alt="">` : artSVG(p.art)}</span>
+      <span class="adm-item__name">${esc(p.name)}<i>${s.soldOut[p.id] ? 'Sold out' : 'Available'}</i></span>
+      <input type="checkbox" class="sw" data-avail="${p.id}" ${s.soldOut[p.id] ? '' : 'checked'} aria-label="${esc(p.name)} available">
+    </label>`).join('')}</div>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">2</span>Pick-up days</h2>
+    <p class="fine">Tap a day to close or open it. <span class="key key--open"></span> open <span class="key key--closed"></span> closed <span class="key key--early"></span> too soon to order</p>
+    <span class="label-like">Closed every week on</span>
+    <div class="wdchips">${WD.map((w, i) => `<label class="wdchip"><input type="checkbox" data-wd="${i}" ${s.closedWeekdays.includes(i) ? 'checked' : ''}><span>${w}</span></label>`).join('')}</div>
+    <div id="admCal">${calHTML(s)}</div>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">3</span>Pick-up times</h2>
+    <p class="fine">Customers choose one of these at checkout.</p>
+    <div id="admTimes" class="adm-times">${s.pickupTimes.map((t, i) => `<div class="adm-time"><input class="input" data-time="${i}" value="${esc(t)}" maxlength="40" aria-label="Pick-up time ${i + 1}"><button type="button" class="iconbtn" data-deltime="${i}" aria-label="Remove this time" ${s.pickupTimes.length < 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
+    <button type="button" class="btn btn--ghost btn--sm" id="admAddTime" ${s.pickupTimes.length >= 8 ? 'disabled' : ''}>+ Add a time</button>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">4</span>Ordering rules</h2>
+    <div class="adm-rule"><span>Order at least</span><div class="stepper"><button type="button" data-step="minLeadDays:-1" aria-label="Less">−</button><b id="v-lead">${s.minLeadDays}</b><button type="button" data-step="minLeadDays:1" aria-label="More">+</button></div><span>day${s.minLeadDays === 1 ? '' : 's'} before pick-up</span></div>
+    <div class="adm-rule"><label for="a-cut">Last order time the day before</label><input class="input input--sm" type="time" id="a-cut" value="${esc(s.orderCutoff)}"><button type="button" class="linkbtn" id="a-cut-x" ${s.orderCutoff ? '' : 'hidden'}>No limit</button></div>
+    <p class="fine adm-ex">${ruleExample(s)}</p>
+    <div class="adm-rule"><span>Customers can book up to</span><div class="stepper"><button type="button" data-step="maxAheadDays:-7" aria-label="Less">−</button><b>${s.maxAheadDays}</b><button type="button" data-step="maxAheadDays:7" aria-label="More">+</button></div><span>days ahead</span></div>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">5</span>Pick-up place</h2>
+    <div class="fields">
+      <div class="field"><label for="a-place">Place name</label><input class="input" id="a-place" data-pick="place" value="${esc(s.pickup.place)}" maxlength="60"></div>
+      <div class="field"><label for="a-city">City</label><input class="input" id="a-city" data-pick="city" value="${esc(s.pickup.city)}" maxlength="60"></div>
+      <div class="field field--full"><label for="a-map">Google Maps pin link</label><input class="input" id="a-map" data-pick="mapUrl" type="url" inputmode="url" value="${esc(s.pickup.mapUrl)}" maxlength="500" placeholder="https://maps.app.goo.gl/…"><span class="hint">In Google Maps, tap the place → Share → Copy link, then paste it here. <a href="${esc(s.pickup.mapUrl)}" target="_blank" rel="noopener" id="a-map-test">Test the link ↗</a></span></div>
+    </div>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">6</span>Announcement <span class="opt">(optional)</span></h2>
+    <p class="fine">Shows as a small bar at the top of the website. Leave empty to hide it.</p>
+    <textarea class="input" id="a-notice" rows="2" maxlength="200" placeholder="e.g. Christmas orders are open until Dec 20!">${esc(s.notice)}</textarea>
+  </section>
+
+  <div class="adm-save"><span id="admState" class="fine"></span><button class="btn" type="button" id="admSave">Save changes</button></div>`;
+  bindAdminEvents(box);
+  syncSave();
+}
+function ruleExample(s) {
+  let first = draftEarliest(s); for (let i = 0; i < 60 && draftClosed(s, first); i++) first = addDays(first, 1);
+  const nice = (ds) => new Date(ds + 'T00:00:00Z').toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return `Right now, the earliest pick-up a customer can choose is <b>${nice(first)}</b>.`;
+}
+function syncSave() {
+  const b = $('#admSave'), st = $('#admState'); if (!b) return;
+  const d = dirty(); b.disabled = !d || adm.busy || !adm.storage; st.textContent = d ? 'You have unsaved changes' : 'All changes saved ✓';
+  st.classList.toggle('is-dirty', d);
+}
+function bindAdminEvents(box) {
+  const s = adm.s;
+  const rerender = () => { const y = scrollY; renderAdmin(box); window.scrollTo(0, y); };
+  $('#admOut').onclick = () => { if (dirty() && !confirmLeave()) return; adm.pw = ''; adm.s = null; sstore.set('so_admin', ''); renderLogin(box); };
+  $$('[data-avail]', box).forEach((c) => c.addEventListener('change', () => { s.soldOut[c.dataset.avail] = !c.checked; c.closest('.adm-item').querySelector('i').textContent = c.checked ? 'Available' : 'Sold out'; syncSave(); }));
+  $$('[data-wd]', box).forEach((c) => c.addEventListener('change', () => {
+    const w = +c.dataset.wd; s.closedWeekdays = c.checked ? [...new Set([...s.closedWeekdays, w])] : s.closedWeekdays.filter((x) => x !== w);
+    s.openDates = s.openDates.filter((d) => weekdayOf(d) !== w); // a fresh weekly rule replaces old one-off exceptions for that weekday
+    $('#admCal').innerHTML = calHTML(s); syncSave();
+  }));
+  $('#admCal').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-day]'); if (!b) return; const d = b.dataset.day;
+    const weekly = s.closedWeekdays.includes(weekdayOf(d));
+    if (s.closedDates.includes(d)) s.closedDates = s.closedDates.filter((x) => x !== d);
+    else if (weekly) s.openDates = s.openDates.includes(d) ? s.openDates.filter((x) => x !== d) : [...s.openDates, d].sort();
+    else s.closedDates = [...s.closedDates, d].sort();
+    $('#admCal').innerHTML = calHTML(s); syncSave();
+    $(`#admCal [data-day="${d}"]`)?.focus();
+  });
+  $$('[data-time]', box).forEach((inp) => inp.addEventListener('input', () => { s.pickupTimes[+inp.dataset.time] = inp.value; syncSave(); }));
+  $$('[data-deltime]', box).forEach((b) => b.addEventListener('click', () => { s.pickupTimes.splice(+b.dataset.deltime, 1); rerender(); }));
+  $('#admAddTime').onclick = () => { s.pickupTimes.push(''); rerender(); const ins = $$('[data-time]', box); ins[ins.length - 1]?.focus(); };
+  $$('[data-step]', box).forEach((b) => b.addEventListener('click', () => {
+    const [k, n] = b.dataset.step.split(':'); const lim = k === 'minLeadDays' ? [0, 14] : [7, 180];
+    s[k] = Math.min(lim[1], Math.max(lim[0], s[k] + +n)); rerender();
+  }));
+  $('#a-cut').addEventListener('change', (e) => { s.orderCutoff = e.target.value || ''; rerender(); });
+  $('#a-cut-x').onclick = () => { s.orderCutoff = ''; rerender(); };
+  $$('[data-pick]', box).forEach((inp) => inp.addEventListener('input', () => { s.pickup[inp.dataset.pick] = inp.value.trim(); if (inp.dataset.pick === 'mapUrl') $('#a-map-test').href = inp.value.trim(); syncSave(); }));
+  $('#a-notice').addEventListener('input', (e) => { s.notice = e.target.value; syncSave(); });
+  $('#admSave').onclick = async () => {
+    const b = $('#admSave'); adm.busy = true; b.disabled = true; b.textContent = 'Saving…';
+    s.pickupTimes = s.pickupTimes.map((t) => t.trim()).filter(Boolean);
+    if (s.pickup.mapUrl && !/^https:\/\//.test(s.pickup.mapUrl)) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('The map link should start with https://'); $('#a-map').focus(); return; }
+    let j; try { j = await adminCall('save', { settings: s }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
+    adm.busy = false; b.textContent = 'Save changes';
+    if (!j.ok) { if (/password/i.test(j.error || '')) { adm.pw = ''; sstore.set('so_admin', ''); } toast(j.error || 'Couldn’t save. Please try again.'); syncSave(); return; }
+    adm.s = cleanSettings(j.settings); adm.saved = JSON.stringify(adm.s); adm.updatedAt = j.settings.updatedAt;
+    applySettings(adm.s); store.set('so_settings', adm.s); showNotice();
+    rerender(); toast('Saved! Customers see the changes right away.');
+  };
+}
+const confirmLeave = () => window.confirm('You have unsaved changes. Leave without saving?');
+
+/* announcement bar */
+function showNotice() {
+  let bar = $('#notice');
+  if (!SHOP.notice) { bar?.remove(); return; }
+  if (!bar) { bar = document.createElement('div'); bar.id = 'notice'; bar.className = 'notice'; bar.setAttribute('role', 'status'); document.body.prepend(bar); }
+  bar.textContent = SHOP.notice;
+}
+/* load the owner's latest settings (cached copy first so the page shows instantly) */
+async function loadShopSettings() {
+  const cached = store.get('so_settings', null);
+  if (window.SO_DEMO) { const d = demoSettings(); if (d) applySettings(d); return false; }
+  if (cached) applySettings(cached);
+  try {
+    const res = await fetch('/api/settings', { signal: AbortSignal.timeout(4000) });
+    const j = await res.json();
+    if (!j.ok) return false;
+    const fresh = cleanSettings(j.settings);
+    const changed = JSON.stringify(fresh) !== JSON.stringify(cached && cleanSettings(cached));
+    applySettings(fresh); store.set('so_settings', fresh);
+    return changed;
+  } catch { return false; }
+}
+function refreshCart() { const before = cart.items.length; cart.items = cart.items.filter((i) => !findProduct(i.pid)?.soldOut); if (cart.items.length !== before) cart.save(); }
+
 /* ───────────────────────── router ───────────────────────── */
+let lastHash = location.hash;
 function route() {
+  if (lastHash.startsWith('#/admin') && !location.hash.startsWith('#/admin') && dirty() && !confirmLeave()) { history.replaceState(null, '', lastHash); return; }
+  lastHash = location.hash;
   if (!$('#drawer').hidden) closeDrawer();
   $('#boxPeek')?.classList.remove('show');
   cleanups.forEach((f) => f()); cleanups = [];
@@ -1109,6 +1326,7 @@ function route() {
     case 'checkout': html = viewCheckout(); after = cart.items.length ? bindCheckout : renderCart; title = 'Checkout · Simple Oven'; break;
     case 'thanks': html = viewThanks(); after = bindProof; title = 'Thank you · Simple Oven'; break;
     case 'pay': html = viewPay(); after = bindProof; title = 'Upload payment · Simple Oven'; break;
+    case 'admin': html = viewAdmin(); after = bindAdmin; title = 'Owner page · Simple Oven'; break;
     default: html = viewNotFound();
   }
   document.title = title;
@@ -1126,4 +1344,7 @@ addEventListener('hashchange', route);
 addEventListener('scroll', () => $('#nav').classList.toggle('is-scrolled', scrollY > 10), { passive: true });
 $('#yr').textContent = new Date().getFullYear();
 updateCount();
+// show the page right away (with the last-known settings), then refresh if the owner changed something
+loadShopSettings().then((changed) => { refreshCart(); showNotice(); updateCount(); if (changed && !location.hash.startsWith('#/admin')) route(); });
+if (window.SO_DEMO) { refreshCart(); showNotice(); }
 route();

@@ -1,15 +1,15 @@
 // Order logic for POST /api/order (used by functions/api/order.js).
 // Re-checks every field, recomputes prices from public/js/products.js, rejects sold-out items
 // and closed dates, emails the order via Resend, then logs it to Google Sheets (optional).
-import { SHOP, findProduct, findVariant, findZone, isClosedDate } from '../public/js/products.js';
+import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate } from '../public/js/products.js';
+import { useSettings } from './settings.js';
 import { esc, clean, peso, todayManila, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
 
 const MAX_LINES = 20;
 const limiter = rateLimiter(6, 10 * 60 * 1000);
 const recent = new Map(); // idempotencyKey -> response (best-effort dedupe)
 
-const TIMES = ['Morning (9am – 12nn)', 'Afternoon (12nn – 5pm)', 'Evening (5pm – 8pm)', 'Any time'];
-const PAYMENTS = ['GCash', 'Bank transfer', 'Cash on pick-up'];
+const PAYMENTS = ['GCash', 'Bank transfer'];
 
 function makeOrderId() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -31,7 +31,7 @@ export function validateOrder(body) {
     address: clean(b.address, 300),
     zone: clean(b.zone, 20),
     date: clean(b.date, 10),
-    time: TIMES.includes(b.time) ? b.time : 'Any time',
+    time: clean(b.time, 40),
     payment: PAYMENTS.includes(b.payment) ? b.payment : 'GCash',
     notes: clean(b.notes, 500),
     gift: b.gift === true || b.gift === 'on' || b.gift === 'true',
@@ -45,8 +45,11 @@ export function validateOrder(body) {
   if (digits.length < 10 || digits.length > 13) errors.phone = 'Please enter a valid mobile number.';
   if (o.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(o.email)) errors.email = 'Please check your email address.';
   o.address = ''; o.zone = '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date) || o.date < todayManila(0)) errors.date = 'Please choose a valid date.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date)) errors.date = 'Please choose a pick-up date.';
+  else if (o.date < earliestDate()) errors.date = 'Orders need to be placed at least a day before pick-up. Please choose a later date.';
+  else if (o.date > latestDate()) errors.date = 'That date is too far ahead. Please choose an earlier date.';
   else if (isClosedDate(o.date)) errors.date = 'Sorry, we’re closed on that date. Please pick another day.';
+  if (!SHOP.pickupTimes.includes(o.time)) errors.time = 'Please choose a pick-up time.';
   if (o.gift) {
     if (o.giftTo.length < 2) errors.giftTo = 'Please enter who the gift is for.';
     if (o.giftPhone && (o.giftPhone.replace(/\D/g, '').length < 10 || o.giftPhone.replace(/\D/g, '').length > 13)) errors.giftPhone = 'Please check the recipient’s number.';
@@ -152,6 +155,7 @@ export async function handleOrder(request, env) {
   const idem = clean(body.idempotencyKey, 80);
   if (idem && recent.has(idem)) return json(200, recent.get(idem));
 
+  await useSettings(env); // owner's latest availability, days and times
   const { order, errors } = validateOrder(body);
   if (Object.keys(errors).length) return json(422, { ok: false, error: Object.values(errors)[0], fields: errors });
 

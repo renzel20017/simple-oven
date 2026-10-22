@@ -4,3 +4,5 @@
 node_modules
 .wrangler
 .mail-outbox
+
+.dev-kv.json

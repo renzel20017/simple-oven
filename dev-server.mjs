@@ -39,9 +39,20 @@ if (env.MOCK_RESEND === '1') {
   };
 }
 
+// fake Cloudflare KV for the owner page (saved to ./.dev-kv.json)
+if (!env.NO_KV) {
+  const file = join(root, '.dev-kv.json');
+  const read = () => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return {}; } };
+  env.SETTINGS = {
+    async get(k, type) { const v = read()[k]; return v == null ? null : type === 'json' ? JSON.parse(v) : v; },
+    async put(k, v) { await writeFile(file, JSON.stringify({ ...read(), [k]: v })); },
+  };
+}
 const routes = {
   '/api/order': await import('./functions/api/order.js'),
   '/api/payment-proof': await import('./functions/api/payment-proof.js'),
+  '/api/settings': await import('./functions/api/settings.js'),
+  '/api/admin': await import('./functions/api/admin.js'),
 };
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.woff2': 'font/woff2' };
 
@@ -51,7 +62,7 @@ http.createServer(async (req, res) => {
   if (fn) {
     const chunks = []; for await (const c of req) chunks.push(c);
     const request = new Request(url, { method: req.method, headers: req.headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks) });
-    const handler = req.method === 'POST' && fn.onRequestPost ? fn.onRequestPost : fn.onRequest;
+    const handler = (req.method === 'POST' && fn.onRequestPost) || (req.method === 'GET' && fn.onRequestGet) || fn.onRequest;
     const out = await handler({ request, env });
     res.writeHead(out.status, Object.fromEntries(out.headers));
     return res.end(Buffer.from(await out.arrayBuffer()));

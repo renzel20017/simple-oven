@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict';
 import { validateOrder } from '../server/order.js';
 import { validateProof } from '../server/payment-proof.js';
-import { PRODUCTS, SHOP, nextOpenDates, addDays } from '../public/js/products.js';
+import { PRODUCTS, SHOP, nextOpenDates, addDays, applySettings, defaultSettings, earliestDate, cleanSettings } from '../public/js/products.js';
 
 const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const day = nextOpenDates(addDays(today, 3), 1)[0];
-const base = { name: 'Ana Reyes', phone: '0917 123 4567', fulfillment: 'delivery', zone: 'near', address: '12 Mabini St, Makati City', date: day, time: 'Any time', payment: 'GCash' };
+const base = { name: 'Ana Reyes', phone: '0917 123 4567', fulfillment: 'delivery', zone: 'near', address: '12 Mabini St, Makati City', date: day, time: 'Morning (9am – 12nn)', payment: 'GCash' };
 const one = [{ pid: 'sampler', vid: '4', qty: 1 }];
 
 let r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '8', qty: 2, price: 1 }, { pid: 'biscoff-revel', vid: 'box', qty: 1 }] });
@@ -36,6 +36,21 @@ assert.equal(validateOrder({ ...base, gift: false, giftTo: 'x', items: one }).or
 const rv = PRODUCTS.find((p) => p.id === 'red-velvet'); rv.soldOut = true;
 assert.match(validateOrder({ ...base, items: [{ pid: 'red-velvet', vid: '4', qty: 1 }] }).errors.items || '', /sold out/, 'sold-out items rejected');
 rv.soldOut = false;
+
+// ordering rules + owner settings
+assert.ok(validateOrder({ ...base, date: today, items: one }).errors.date, 'same-day pick-up rejected (order a day before)');
+assert.ok(validateOrder({ ...base, time: 'Midnight', items: one }).errors.time, 'unknown time rejected');
+assert.equal(validateOrder({ ...base, payment: 'Cash on pick-up', items: one }).order.payment, 'GCash', 'cash on pick-up removed');
+applySettings({ ...defaultSettings(), soldOut: { 'white-choco-oreo': true }, closedWeekdays: [new Date(day + 'T00:00:00Z').getUTCDay()], pickupTimes: ['1pm – 3pm'] });
+assert.match(validateOrder({ ...base, time: '1pm – 3pm', items: [{ pid: 'white-choco-oreo', vid: '4', qty: 1 }] }).errors.items || '', /sold out/, 'owner sold-out applies');
+assert.ok(validateOrder({ ...base, time: '1pm – 3pm', items: one }).errors.date, 'owner closed weekday applies');
+assert.equal(validateOrder({ ...base, time: 'Morning (9am – 12nn)', items: one }).errors.time !== undefined, true, 'owner time list applies');
+applySettings({ ...defaultSettings(), closedWeekdays: [new Date(day + 'T00:00:00Z').getUTCDay()], openDates: [day], pickupTimes: ['1pm – 3pm'] });
+assert.deepEqual(validateOrder({ ...base, time: '1pm – 3pm', items: one }).errors, {}, 'open-date exception applies');
+applySettings({ ...defaultSettings(), orderCutoff: '00:00' });
+assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest day');
+assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
+applySettings(defaultSettings());
 
 // payment proof
 const png = 'data:image/png;base64,' + Buffer.from('fakepng').toString('base64');

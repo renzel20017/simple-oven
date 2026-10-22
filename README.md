@@ -9,14 +9,13 @@ simple-oven/
 ├─ public/                 ← everything visitors download (the website)
 │  ├─ index.html
 │  ├─ css/styles.css
-│  ├─ js/products.js       ★ MENU, PRICES, PAYMENT DETAILS, CLOSED DATES, DELIVERY AREAS
+│  ├─ js/products.js       ★ MENU, PRICES, PAYMENT DETAILS + starting settings
 │  ├─ js/app.js            pages, cart, cookie box, checkout, animations
 │  ├─ assets/              logo, photos, cookie cut-outs, paper textures, fonts
 │  └─ _headers             caching + security settings for Cloudflare
 ├─ functions/api/          ← Cloudflare turns these into /api/order and /api/payment-proof
 ├─ server/                 order + payment logic (checks, prices, emails, Google Sheets)
 ├─ google-sheets/Code.gs   paste into Google Sheets to log every order (optional)
-├─ wrangler.toml           Cloudflare settings
 ├─ dev-server.mjs, tests/  for testing on your computer
 └─ .dev.vars.example       list of the secret settings you need
 ```
@@ -36,7 +35,7 @@ simple-oven/
 
 ### Option A: through GitHub (no installing, recommended)
 1. Make a free account at **github.com**, then **+ → New repository**, name it `simple-oven`, **Create**.
-2. Unzip the project. On the repository page click **"uploading an existing file"**, drag in everything *inside* the `simple-oven` folder (`public`, `functions`, `server`, `wrangler.toml`, …), then **Commit changes**.
+2. Unzip the project. On the repository page click **"uploading an existing file"**, drag in everything *inside* the `simple-oven` folder (`public`, `functions`, `server`, …), then **Commit changes**.
 3. Make a free account at **dash.cloudflare.com**.
 4. **Workers & Pages → Create → Pages → Connect to Git**, then pick your `simple-oven` repository.
 5. Build settings:
@@ -67,6 +66,7 @@ Cloudflare → **Workers & Pages → simple-oven → Settings → Variables and 
 | `ORDER_FROM_EMAIL` | `Simple Oven <orders@yourdomain.com>` | only after you verify a domain in Resend |
 | `SEND_CUSTOMER_CONFIRMATION` | `true` | only after you verify a domain |
 | `ALLOWED_ORIGIN` | `https://simple-oven.pages.dev` (your real address) | optional, blocks other sites from using your order form |
+| `ADMIN_PASSWORD` | a long password only the owner knows | ✅ for the owner page (section 10) |
 | `SHEETS_WEBHOOK_URL` / `SHEETS_SECRET` | see section 8 | optional |
 
 Then **Deployments → latest → ⋯ → Retry deployment**. Settings only apply to new deployments.
@@ -119,11 +119,13 @@ Open `public/js/products.js`:
 - **Price:** change `price: 380`.
 - **New flavor:** copy one product block, give it a new `id`, and set the name, description and prices.
 - **Photo:** put a `.webp` file in `assets/img/` (plus a smaller `-sm.webp` version), then set `img: 'file-name'` and `gallery: [...]`.
-  Products with `img: null` show a "Photo soon" illustration (currently Birthday Bomb, White Cookie Butter and Biscoff Revel Bars).
+  Products with `img: null` show a "Photo soon" illustration (currently only Biscoff Revel Bars).
 
 Save the file and redeploy (or push to GitHub). The server uses the same file, so prices always match.
 
-## 7. Shop settings you'll change often (all in `public/js/products.js`)
+## 7. Settings in `public/js/products.js`
+
+> Availability, pick-up days, pick-up times, ordering rules, pick-up place and the announcement are changed on the **owner page** (section 10), no GitHub needed. The values below are only the starting values.
 
 | What | Setting | Example |
 |---|---|---|
@@ -159,3 +161,26 @@ MOCK_RESEND=1 npm run dev        # test without sending real email (saved to .ma
 npm run dev:cf                   # run on Cloudflare's own local runtime → http://localhost:8788
 npm test                         # automatic checks for prices, dates, gifts, uploads
 ```
+
+## 10. Owner page: change availability, days and times from your phone
+
+Go to **`https://simple-oven.pages.dev/#/admin`** (there's also a small "Owner login" link at the bottom of the site) and log in with your password.
+
+| Section | What it does |
+|---|---|
+| 1 What's available | Switch a flavor off → it shows "Sold out" and can't be ordered |
+| 2 Pick-up days | Tap days on the calendar to close/open them, or close a weekday every week |
+| 3 Pick-up times | The time choices customers see at checkout |
+| 4 Ordering rules | How many days before pick-up customers must order (default 1), optional last-order time, how far ahead they can book |
+| 5 Pick-up place | Place name, city and the Google Maps pin link shown at checkout |
+| 6 Announcement | Optional bar at the top of the website |
+
+Press **Save changes**. The website and the order server both use the new settings within seconds.
+
+### One-time setup (about 3 minutes)
+1. Cloudflare → **Storage & Databases → KV → Create** (name it `simple-oven-settings`).
+2. **Workers & Pages → simple-oven → Settings → Bindings → Add → KV namespace**. Variable name: **`SETTINGS`**, namespace: `simple-oven-settings`. Save.
+3. **Settings → Variables and Secrets → Add** → type **Secret**, name **`ADMIN_PASSWORD`**, value: a long password. Save.
+4. **Deployments → latest → ⋯ → Retry deployment.**
+
+Free plan: up to 1,000 saves per day, more than enough. If the KV storage is missing, the site still works with the starting values from `products.js`.
