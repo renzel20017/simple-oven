@@ -171,7 +171,7 @@ function bakeBoxHTML({ closed = false, tag = '' } = {}) {
       <div class="bakebox__tray">${shown.map((p, i) => tokenHTML(p.pid, i, newIdx.has(i))).join('')}${extra > 0 ? `<span class="tok tok--more">+${extra}</span>` : ''}${!pieces.length ? '<span class="bakebox__hint">your cookies go here</span>' : ''}</div>
       <div class="bakebox__front"><span>${esc(tag || boxMood(cookies, bars))}</span></div>
     </div>
-    <div class="bakebox__ribbon" aria-hidden="true"><i></i><u></u><b>${satinBow}</b>${tag ? `<em class="bakebox__tag">${esc(tag)} ♡</em>` : ''}</div>
+    <div class="bakebox__ribbon" aria-hidden="true"><i></i><u></u><b><img src="/assets/cut/bow.webp" alt=""></b>${tag ? `<em class="bakebox__tag">${esc(tag)} ♡</em>` : ''}</div>
   </div>`;
 }
 
@@ -851,7 +851,7 @@ async function submitOrder(d) {
 }
 // cute moment: the cookies get packed, the lid closes and a ribbon is tied before the thank-you page
 async function packBox(name) {
-  if (reduceMotion) return;
+  // plays on every device (also PCs with 'reduce motion' on): it's short and only after the customer taps Place order
   const ov = document.createElement('div');
   ov.className = 'packing'; ov.setAttribute('role', 'status');
   ov.innerHTML = `<div class="packing__card">${bakeBoxHTML({ tag: 'for ' + (name || '').split(' ')[0] })}<p class="packing__msg">Packing your box…</p></div>`;
