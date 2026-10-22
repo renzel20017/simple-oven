@@ -969,3 +969,20 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .datechips { min-width: 0; }
 .datechip input { width: 100%; height: 100%; margin: 0; }
 @supports not (overflow-x: clip) { html, body { overflow-x: hidden; } }
+
+/* payment: QR + owner page */
+.paycard__qr { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.paycard__qr img { width: 132px; height: 132px; object-fit: contain; background: #fff; border-radius: 10px; border: 1px solid var(--line); }
+.paycard__qr a { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+.adm-item--plain { cursor: default; }
+.adm-item--plain .adm-item__name i { color: var(--muted); }
+.adm-qr { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.adm-qr img, .adm-qr__none { width: 110px; height: 110px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); background: #fff; display: grid; place-items: center; font-size: 13px; color: var(--muted); }
+.adm-qr > div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex: 1; min-width: 180px; }
+.adm-qr label.btn { cursor: pointer; }
+
+/* Android: no blue tap box */
+* { -webkit-tap-highlight-color: transparent; }
+.stage, .stage *, .stage__tap { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.stage__tap:focus:not(:focus-visible), .solo__cookie:focus:not(:focus-visible) { outline: none; }
+.stage img { -webkit-user-drag: none; }

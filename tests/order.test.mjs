@@ -50,6 +50,13 @@ assert.deepEqual(validateOrder({ ...base, time: '1pm – 3pm', items: one }).err
 applySettings({ ...defaultSettings(), orderCutoff: '00:00' });
 assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest day');
 assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
+applySettings({ ...defaultSettings(), payment: { gcashName: 'A', gcashNumber: '0917 000 0000' } });
+r = validateOrder({ ...base, items: one });
+assert.ok(r.errors.proof && r.errors.payRef, 'pay-first: screenshot + reference required');
+r = validateOrder({ ...base, items: one, payRef: '1012 345 678 901', proof: 'data:image/png;base64,iVBORw0KGgo=' });
+assert.deepEqual(r.errors, {}, 'pay-first: valid proof accepted'); assert.equal(r.order.payRef, '1012345678901');
+applySettings({ ...defaultSettings(), payment: { gcashNumber: '0917' }, requirePayment: false });
+assert.deepEqual(validateOrder({ ...base, items: one }).errors, {}, 'owner can switch pay-first off');
 applySettings(defaultSettings());
 
 // payment proof

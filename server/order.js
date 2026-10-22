@@ -1,8 +1,8 @@
 // Order logic for POST /api/order (used by functions/api/order.js).
 // Re-checks every field, recomputes prices from public/js/products.js, rejects sold-out items
 // and closed dates, emails the order via Resend, then logs it to Google Sheets (optional).
-import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate } from '../public/js/products.js';
-import { useSettings } from './settings.js';
+import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst } from '../public/js/products.js';
+import { useSettings, refUsed, rememberRef } from './settings.js';
 import { esc, clean, peso, todayManila, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
 
 const MAX_LINES = 20;
@@ -39,6 +39,7 @@ export function validateOrder(body) {
     giftPhone: clean(b.giftPhone, 20),
     giftNote: clean(b.giftNote, 200),
     giftHidePrices: b.giftHidePrices === true || b.giftHidePrices === 'on' || b.giftHidePrices === 'true',
+    payRef: clean(b.payRef, 40).replace(/\s+/g, '').toUpperCase(),
   };
   if (o.name.length < 2) errors.name = 'Please enter your name.';
   const digits = o.phone.replace(/\D/g, '');
@@ -54,6 +55,16 @@ export function validateOrder(body) {
     if (o.giftTo.length < 2) errors.giftTo = 'Please enter who the gift is for.';
     if (o.giftPhone && (o.giftPhone.replace(/\D/g, '').length < 10 || o.giftPhone.replace(/\D/g, '').length > 13)) errors.giftPhone = 'Please check the recipient’s number.';
   } else { o.giftTo = ''; o.giftPhone = ''; o.giftNote = ''; o.giftHidePrices = false; }
+
+  // pay-first safeguard: a reference number + payment screenshot are required with every order
+  o.paidUpfront = mustPayFirst();
+  if (o.paidUpfront) {
+    if (!/^[A-Z0-9-]{6,30}$/.test(o.payRef)) errors.payRef = 'Please enter the reference number from your GCash / bank receipt.';
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(b.proof || ''));
+    if (!m) errors.proof = 'Please upload the screenshot of your payment.';
+    else if (m[2].length * 3 / 4 > 3 * 1024 * 1024) errors.proof = 'That screenshot is too large. Please choose a smaller one.';
+    else o.proof = { mime: m[1], base64: m[2] };
+  } else o.payRef = '';
 
   // items — recompute everything from the server-side menu
   const items = Array.isArray(b.items) ? b.items.slice(0, MAX_LINES) : [];
@@ -105,7 +116,7 @@ export function ownerEmail(o) {
         ${row('Mobile', `<a href="tel:${esc(tel)}" style="color:#8b1d24">${esc(o.phone)}</a>`)}
         ${row('Email', o.email ? `<a href="mailto:${esc(o.email)}" style="color:#8b1d24">${esc(o.email)}</a>` : '')}
         ${row('IG / FB', esc(o.social))}
-        ${row('Payment', esc(o.payment))}
+        ${row('Payment', esc(o.payment) + (o.payRef ? ` · ref <b>${esc(o.payRef)}</b><br><span style="color:#7b6a5c;font-weight:400">Screenshot attached. Check that the money is in your ${esc(o.payment)} app before baking.</span>` : ''))}
         ${row('Notes', esc(o.notes).replace(/\n/g, '<br>'))}
       </table>
       ${o.gift ? `<h2 style="font-family:Georgia,serif;font-size:19px;margin:22px 0 8px">🎁 Gift for</h2><table style="border-collapse:collapse;font-size:15px">
@@ -124,10 +135,10 @@ export function ownerEmail(o) {
     o.fulfillment === 'delivery' ? `Rider fee: ${feeText(o.zoneInfo)} — ${o.zoneInfo?.label}` : null,
     '',
     `Name: ${o.name}`, `Mobile: ${o.phone}`, o.email ? `Email: ${o.email}` : null, o.social ? `IG/FB: ${o.social}` : null,
-    o.fulfillment === 'delivery' ? `Address: ${o.address}` : null, `Payment: ${o.payment}`, o.notes ? `Notes: ${o.notes}` : null,
+    o.fulfillment === 'delivery' ? `Address: ${o.address}` : null, `Payment: ${o.payment}${o.payRef ? ` · ref ${o.payRef} (screenshot attached — check your app before baking)` : ''}`, o.notes ? `Notes: ${o.notes}` : null,
     o.gift && o.giftPhone ? `Recipient mobile: ${o.giftPhone}` : null, o.gift && o.giftNote ? `Gift note: ${o.giftNote}` : null,
   ].filter((x) => x != null).join('\n');
-  return { html, text, subject: `${o.gift ? '🎁' : '🍪'} New order ${o.orderId} · ${o.name} · ${peso(o.subtotal)}` };
+  return { html, text, subject: `${o.gift ? '🎁' : '🍪'} New order ${o.orderId} · ${o.name} · ${peso(o.subtotal)}${o.payRef ? ' · 💸 paid, please verify' : ''}` };
 }
 
 function customerEmail(o) {
@@ -147,7 +158,7 @@ export async function handleOrder(request, env) {
   if (limiter.blocked(ip)) return json(429, { ok: false, error: 'Too many orders from this device. Please wait a few minutes and try again.' });
 
   let body;
-  try { body = await readJson(request, 20000); } catch { return json(400, { ok: false, error: 'Invalid request.' }); }
+  try { body = await readJson(request, 4.5 * 1024 * 1024); } catch { return json(400, { ok: false, error: 'The order was too large. Please try a smaller payment screenshot.' }); }
 
   // honeypot: bots fill hidden fields — pretend success, send nothing
   if (body.company) return json(200, { ok: true, order: { orderId: 'SO-000000-0000', lines: [], subtotal: 0 } });
@@ -166,21 +177,27 @@ export async function handleOrder(request, env) {
 
   order.orderId = makeOrderId();
   order.createdAt = Date.now();
+  if (order.payRef) {
+    const used = await refUsed(env, order.payRef);
+    if (used) return json(422, { ok: false, error: `That reference number was already used for order ${used}. Please check your receipt.`, fields: { payRef: 'Already used for another order.' } });
+  }
 
   try {
     const mail = ownerEmail(order);
-    await sendResend(env, { to: env.ORDER_TO_EMAIL, subject: mail.subject, html: mail.html, text: mail.text, replyTo: order.email || undefined, idempotencyKey: idem ? `owner-${idem}` : undefined });
+    const attachments = order.proof ? [{ filename: `${order.orderId}-payment.${order.proof.mime.split('/')[1].replace('jpeg', 'jpg')}`, content: order.proof.base64 }] : undefined;
+    await sendResend(env, { to: env.ORDER_TO_EMAIL, subject: mail.subject, html: mail.html, text: mail.text, replyTo: order.email || undefined, idempotencyKey: idem ? `owner-${idem}` : undefined, attachments });
   } catch (err) {
     console.error('[order] email failed', err.message);
     return json(502, { ok: false, error: 'We couldn’t send your order right now.' });
   }
   limiter.hit(ip);
+  await rememberRef(env, order.payRef, order.orderId);
 
   // extras that must never break a successful order
   const extras = [logToSheet(env, { action: 'order', order: {
     orderId: order.orderId, createdAt: new Date(order.createdAt).toISOString(), name: order.name, phone: order.phone, email: order.email, social: order.social,
     fulfillment: order.pickupBy === 'rider' ? 'Pick-up (own rider)' : 'Pick-up', date: order.date, time: order.time, address: '', zone: '',
-    items: order.lines.map((l) => `${l.qty}× ${l.name} (${l.variant})`).join(', '), subtotal: order.subtotal, payment: order.payment,
+    items: order.lines.map((l) => `${l.qty}× ${l.name} (${l.variant})`).join(', '), subtotal: order.subtotal, payment: order.payment + (order.payRef ? ` · ref ${order.payRef} (screenshot in email)` : ''),
     gift: order.gift ? `For ${order.giftTo}${order.giftNote ? ' — “' + order.giftNote + '”' : ''}` : '', notes: order.notes,
   } })];
   if (env.SEND_CUSTOMER_CONFIRMATION === 'true' && order.email) {
@@ -193,7 +210,7 @@ export async function handleOrder(request, env) {
     ok: true,
     order: {
       orderId: order.orderId, createdAt: order.createdAt, name: order.name, phone: order.phone,
-      fulfillment: order.fulfillment, pickupBy: order.pickupBy, date: order.date, time: order.time, payment: order.payment,
+      fulfillment: order.fulfillment, pickupBy: order.pickupBy, date: order.date, time: order.time, payment: order.payment, paid: !!order.paidUpfront, payRef: order.payRef,
       zone: null, gift: order.gift ? { to: order.giftTo, hidePrices: order.giftHidePrices } : null,
       lines: order.lines.map(({ name, variant, qty, total }) => ({ name, variant, qty, total })),
       subtotal: order.subtotal,

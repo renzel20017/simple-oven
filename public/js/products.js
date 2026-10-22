@@ -23,13 +23,15 @@ export const SHOP = {
   // Website look: 'paper' (Option A), 'night' (Option B) or 'sticker' (Option C)
   design: 'paper',
 
-  // ── How customers pay you (shown on the thank-you page). Leave '' to hide a line. ──
+  // ── How customers pay you. Set these on the owner page (/#/admin). Leave '' to hide a line. ──
+  requirePayment: true, // customers pay + upload their GCash/bank screenshot BEFORE the order is sent
   payment: {
     gcashName: '',          // e.g. 'Juan D.'
     gcashNumber: '',        // e.g. '0917 123 4567'
     bankName: '',           // e.g. 'BPI'
     bankAccountName: '',    // e.g. 'Juan Dela Cruz'
     bankAccountNumber: '',  // e.g. '1234 5678 90'
+    qr: '',                 // set automatically when a GCash QR is uploaded on the owner page
   },
 
   // ── Pick-up (we don't deliver; customers can send their own rider) ──
@@ -197,7 +199,10 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment'];
+export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
+export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
+export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
 const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])) }));
 export function defaultSettings() {
   const d = JSON.parse(JSON.stringify(DEFAULTS));
@@ -222,6 +227,12 @@ export function cleanSettings(raw) {
     if (/^https:\/\/[^\s"'<>]+$/.test(u)) out.pickup.mapUrl = u;
   }
   if (typeof r.notice === 'string') out.notice = str(r.notice, 200);
+  if (r.payment && typeof r.payment === 'object') {
+    out.payment = { ...d.payment };
+    for (const k of PAY_FIELDS) if (typeof r.payment[k] === 'string') out.payment[k] = str(r.payment[k], 60);
+    out.payment.qr = /^\d{10,16}$/.test(String(r.payment.qr || '')) ? String(r.payment.qr) : '';
+  }
+  if (typeof r.requirePayment === 'boolean') out.requirePayment = r.requirePayment;
   return out;
 }
 export function applySettings(raw) {

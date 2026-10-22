@@ -1,4 +1,4 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -623,22 +623,61 @@ function viewCheckout() {
           </div>
         </div>
 
-        <div class="panel">
+        ${mustPayFirst() ? payNowPanel() : `<div class="panel">
           <h2><span class="num">4</span>Payment & notes</h2>
           <p class="fine">No payment yet. After you place your order you'll see how to pay, and you can upload your payment screenshot right there.</p>
           <div class="fields">
             <div class="field field--full"><label for="f-pay">How will you pay?</label><select class="input" id="f-pay" name="payment"><option>GCash</option><option>Bank transfer</option></select><span class="err" id="e-payment"></span></div>
             <div class="field field--full"><label for="f-notes">Notes <span class="opt">(optional)</span></label><textarea class="input" id="f-notes" name="notes" maxlength="500" placeholder="Allergies, special requests…"></textarea></div>
           </div>
-          <div class="hp" aria-hidden="true"><label>Leave this empty<input name="company" tabindex="-1" autocomplete="off"></label></div>
-          <div class="alert alert--err" id="coErr" role="alert" hidden></div>
-          <button class="btn btn--block" type="submit" id="placeBtn" style="margin-top:18px">Place order · <span id="placeTotal">${peso(cart.subtotal())}</span></button>
-          <p class="fine" style="text-align:center;margin-top:10px">By placing your order you agree to be contacted about it.</p>
-        </div>
+          ${placeBtnHTML()}
+        </div>`}
       </form>
       ${receiptHTML()}
     </div>
   </div>`;
+}
+
+/* pay-first checkout: customer pays, then adds the reference no. + screenshot before placing the order */
+const placeBtnHTML = () => `<div class="hp" aria-hidden="true"><label>Leave this empty<input name="company" tabindex="-1" autocomplete="off"></label></div>
+          <div class="alert alert--err" id="coErr" role="alert" hidden></div>
+          <button class="btn btn--block" type="submit" id="placeBtn" style="margin-top:18px">Place order · <span id="placeTotal">${peso(cart.subtotal())}</span></button>
+          <p class="fine" style="text-align:center;margin-top:10px">By placing your order you agree to be contacted about it.</p>`;
+function payNowPanel() {
+  const p = window.SO_PAYMENT || SHOP.payment;
+  const methods = [p.gcashNumber && 'GCash', p.bankAccountNumber && 'Bank transfer'].filter(Boolean);
+  return `<div class="panel">
+          <h2><span class="num">4</span>Pay now</h2>
+          <p class="fine">Send <b>${peso(cart.subtotal())}</b>, then add your reference number and screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
+          ${methods.length > 1 ? `<div class="toggle" role="radiogroup" aria-label="Pay with" style="margin-top:12px">${methods.map((m, i) => `<label><input type="radio" name="payment" value="${m}" ${i ? '' : 'checked'}><span><b>${m}</b></span></label>`).join('')}</div>` : `<input type="hidden" name="payment" value="${methods[0]}">`}
+          <div class="paycards" id="coPay">${payDetailsHTML(methods[0])}</div>
+          <div class="fields" style="margin-top:14px">
+            <div class="field field--full"><label for="f-payRef">Reference number</label><input class="input" id="f-payRef" name="payRef" autocomplete="off" autocapitalize="characters" maxlength="40" placeholder="e.g. 1012 345 678 901"><span class="hint">It's on your GCash / bank receipt after you pay.</span><span class="err" id="e-payRef"></span></div>
+            <div class="field field--full"><span class="label-like">Payment screenshot</span>
+              <label class="drop" id="coDrop" for="co-file">
+                <input type="file" id="co-file" accept="image/*">
+                <span class="drop__empty"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Choose your payment screenshot</b><i>JPG or PNG</i></span>
+                <span class="drop__preview" hidden><img alt="Your screenshot preview"><span><b id="co-fname"></b><i>Tap to change</i></span></span>
+              </label><span class="err" id="e-proof"></span></div>
+            <div class="field field--full"><label for="f-notes">Notes <span class="opt">(optional)</span></label><textarea class="input" id="f-notes" name="notes" maxlength="500" placeholder="Allergies, special requests…"></textarea></div>
+          </div>
+          ${placeBtnHTML()}
+        </div>`;
+}
+let coProof = null;
+function bindPayNow(f) {
+  coProof = null;
+  const file = $('#co-file'); if (!file) return;
+  file.addEventListener('change', async () => {
+    const fl = file.files?.[0]; $('#e-proof').textContent = ''; $('#e-proof').closest('.field').classList.remove('has-err');
+    if (!fl) return;
+    try {
+      coProof = await shrinkImage(fl);
+      const pv = $('#coDrop .drop__preview'); pv.hidden = false; $('#coDrop .drop__empty').hidden = true;
+      $('img', pv).src = coProof; $('#co-fname').textContent = fl.name.length > 28 ? fl.name.slice(0, 25) + '…' : fl.name;
+    } catch { coProof = null; $('#e-proof').textContent = 'We couldn’t open that file. Please choose a JPG or PNG screenshot.'; }
+  });
+  $$('input[name=payment]', f).forEach((r) => r.addEventListener('change', () => { $('#coPay').innerHTML = payDetailsHTML(r.value); }));
 }
 function bindCheckout() {
   const f = $('#coForm');
@@ -658,18 +697,20 @@ function bindCheckout() {
   $('#f-giftNote').addEventListener('input', () => ($('#giftCount').textContent = $('#f-giftNote').value.length));
   $('#f-giftTo').addEventListener('input', () => refreshReceipt());
   sync();
+  bindPayNow(f);
   $$('.input, input[name=date]', f).forEach((i) => i.addEventListener('input', () => { i.closest('.field')?.classList.remove('has-err'); const e = $('#e-' + (i.name === 'dateOther' ? 'date' : i.name)); if (e) e.textContent = ''; }));
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(f));
     d.date = d.date === 'other' ? d.dateOther : d.date || '';
     delete d.dateOther;
+    if (mustPayFirst()) d.proof = coProof;
     const errs = validate(d);
     $$('.field', f).forEach((x) => x.classList.remove('has-err'));
     $$('.err', f).forEach((x) => (x.textContent = ''));
     if (Object.keys(errs).length) {
       for (const [k, m] of Object.entries(errs)) { const el = $('#e-' + k); if (el) { el.textContent = m; el.closest('.field').classList.add('has-err'); } }
-      const first = $('.has-err .input, .has-err .datechips', f); (first?.querySelector?.('input') || first)?.focus(); first?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+      const first = $('.has-err .input, .has-err .datechips, .has-err .drop', f); (first?.querySelector?.('input') || first)?.focus(); first?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
       return;
     }
     store.set('so_customer', { name: d.name, phone: d.phone, email: d.email, social: d.social, pickupBy: d.pickupBy });
@@ -686,6 +727,10 @@ function validate(d) {
   else if (d.date < minDate()) e.date = 'Orders need at least a day’s notice. Please pick a later date.';
   else if (d.date > maxDate()) e.date = 'That’s too far ahead. Please pick an earlier date.';
   else if (isClosedDate(d.date)) e.date = 'Sorry, we’re closed that day. Please pick another date.';
+  if (mustPayFirst()) {
+    if (!/^[A-Z0-9-]{6,30}$/.test((d.payRef || '').replace(/\s+/g, '').toUpperCase())) e.payRef = 'Please enter the reference number from your receipt.';
+    if (!d.proof) e.proof = 'Please upload the screenshot of your payment.';
+  }
   if (d.gift === 'on') {
     if (!d.giftTo || d.giftTo.trim().length < 2) e.giftTo = 'Who is the gift for?';
     const g = (d.giftPhone || '').replace(/\D/g, '');
@@ -745,7 +790,7 @@ async function packBox(name) {
 function demoOrder(p) {
   const lines = p.items.map((i) => { const pr = findProduct(i.pid), v = findVariant(pr, i.vid); return { name: pr.name, variant: v.label, qty: i.qty, total: v.price * i.qty }; });
   const z = null;
-  return { ok: true, order: { orderId: 'SO-261023-DEMO', lines, subtotal: lines.reduce((s, l) => s + l.total, 0), fulfillment: p.fulfillment, date: p.date, time: p.time, name: p.name, phone: p.phone, payment: p.payment, pickupBy: p.pickupBy, zone: z, gift: p.gift ? { to: p.giftTo, hidePrices: p.giftHidePrices } : null, createdAt: Date.now() } };
+  return { ok: true, order: { orderId: 'SO-261023-DEMO', lines, subtotal: lines.reduce((s, l) => s + l.total, 0), fulfillment: p.fulfillment, date: p.date, time: p.time, name: p.name, phone: p.phone, payment: p.payment, paid: mustPayFirst(), payRef: (p.payRef || '').replace(/\s+/g, '').toUpperCase(), pickupBy: p.pickupBy, zone: z, gift: p.gift ? { to: p.giftTo, hidePrices: p.giftHidePrices } : null, createdAt: Date.now() } };
 }
 
 /* ───────────── how to pay + payment proof upload ───────────── */
@@ -754,7 +799,8 @@ function copyRow(label, value) {
 }
 function payDetailsHTML(method) {
   const p = window.SO_PAYMENT || SHOP.payment || {};
-  const gcash = p.gcashNumber ? `<div class="paycard"><h3>GCash</h3>${p.gcashName ? copyRow('Account name', p.gcashName) : ''}${copyRow('GCash number', p.gcashNumber)}</div>` : '';
+  const qr = p.qr && !window.SO_DEMO ? `<div class="paycard__qr"><img src="/api/qr?v=${esc(p.qr)}" alt="GCash QR code" loading="lazy"><a href="/api/qr?v=${esc(p.qr)}" download="simple-oven-gcash-qr">Save QR</a></div>` : '';
+  const gcash = p.gcashNumber ? `<div class="paycard"><h3>GCash</h3>${p.gcashName ? copyRow('Account name', p.gcashName) : ''}${copyRow('GCash number', p.gcashNumber)}${qr}</div>` : '';
   const bank = p.bankAccountNumber ? `<div class="paycard"><h3>${esc(p.bankName || 'Bank transfer')}</h3>${p.bankAccountName ? copyRow('Account name', p.bankAccountName) : ''}${copyRow('Account number', p.bankAccountNumber)}</div>` : '';
   const first = method === 'Bank transfer' ? bank + gcash : gcash + bank;
   return first || `<p class="fine">We'll send our GCash / bank details when we confirm your order.</p>`;
@@ -780,15 +826,16 @@ function proofHTML(pref = {}, compact = false) {
   </form>
   <div class="proof-ok" id="proofOk" hidden><div class="check check--sm"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div><div><b>Screenshot sent!</b><p class="fine">We'll check it and message you to confirm. Thank you!</p></div></div>`;
 }
-async function shrinkImage(file) {
+async function shrinkImage(file, max = 1600, type = 'image/jpeg') {
   // turn any photo into a small JPEG (also fixes huge phone screenshots)
   const url = URL.createObjectURL(file);
   try {
     const im = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; });
-    const max = 1600, s = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+    const s = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
     const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
     c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.85);
+    const ctx = c.getContext('2d'); if (type === 'image/jpeg') { ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+    return c.toDataURL(type, 0.85);
   } finally { URL.revokeObjectURL(url); }
 }
 function bindProof() {
@@ -855,10 +902,10 @@ function viewThanks() {
       <p class="lead" style="margin-top:16px">Your order <b>${esc(o.orderId)}</b> has been sent to us${when ? ` for <b>${esc(when)}</b>` : ''}. Take a screenshot of this page for reference.</p>
       <ol class="next">
         <li><b>1.</b>We'll message you to confirm your order. Pick-up is at ${SHOP.pickup.mapUrl ? `<a href="${esc(SHOP.pickup.mapUrl)}" target="_blank" rel="noopener">${esc(SHOP.pickup.place)} (map pin)</a>` : esc(SHOP.pickup.place)}.</li>
-        <li><b>2.</b>${cash ? 'Pay in cash when you pick up your box.' : 'Send your payment and upload the screenshot below. Your date is booked once we receive it.'}</li>
+        <li><b>2.</b>${o.paid ? `We received your payment screenshot${o.payRef ? ` (ref ${esc(o.payRef)})` : ''}. We'll check it and confirm your date.` : 'Send your payment and upload the screenshot below. Your date is booked once we receive it.'}</li>
         <li><b>3.</b>We bake it fresh. ${o.pickupBy === 'rider' ? `Book your rider when we tell you it's ready.` : 'Pick it up and enjoy!'}</li>
       </ol>
-      ${cash ? '' : `<section class="panel paypanel">
+      ${cash || o.paid ? '' : `<section class="panel paypanel">
         <h2><span class="num">₱</span>How to pay</h2>
         <p class="fine">Amount: <b>${peso(o.subtotal)}</b>. Please pay after we confirm your order.</p>
         <div class="paycards">${payDetailsHTML(o.payment)}</div>
@@ -1082,7 +1129,7 @@ async function adminCall(action, extra = {}) {
 }
 const draftEarliest = (s, now = manilaNow()) => { let d = addDays(now.date, s.minLeadDays); if (s.orderCutoff && now.time >= s.orderCutoff) d = addDays(d, 1); return d; };
 const draftClosed = (s, d) => s.closedDates.includes(d) || (s.closedWeekdays.includes(weekdayOf(d)) && !s.openDates.includes(d));
-const dirty = () => adm.s && JSON.stringify(cleanSettings(adm.s)) !== adm.saved;
+const dirty = () => adm.s && (!!adm.qrImage || JSON.stringify(cleanSettings(adm.s)) !== adm.saved);
 
 function viewAdmin() {
   return `<div class="view wrap admin"><div class="pagehead pagehead--tight"><h1 class="eyebrow">Owner page</h1></div><div id="adm"></div></div>`;
@@ -1156,7 +1203,23 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
-    <h2><span class="num">2</span>Pick-up days</h2>
+    <h2><span class="num">2</span>How customers pay</h2>
+    <label class="adm-item adm-item--plain"><span class="adm-item__name">Customers must pay before ordering<i>${s.requirePayment ? 'On: they send the reference no. + screenshot with the order' : 'Off: they pay after you confirm'}</i></span><input type="checkbox" class="sw" id="a-req" ${s.requirePayment ? 'checked' : ''} aria-label="Customers must pay before ordering"></label>
+    ${!paymentReady(s.payment) ? '<p class="adm-warn" style="margin-top:10px">Add your GCash or bank details below. Until then, customers pay after you confirm.</p>' : ''}
+    <div class="fields" style="margin-top:12px">
+      <div class="field"><label for="a-gname">GCash account name</label><input class="input" id="a-gname" data-pay="gcashName" value="${esc(s.payment.gcashName)}" maxlength="60" placeholder="e.g. Kara C."></div>
+      <div class="field"><label for="a-gnum">GCash number</label><input class="input" id="a-gnum" data-pay="gcashNumber" value="${esc(s.payment.gcashNumber)}" maxlength="20" inputmode="tel" placeholder="0917 123 4567"></div>
+      <div class="field field--full"><span class="label-like">GCash QR <span class="opt">(optional)</span></span>
+        <div class="adm-qr">${adm.qrImage && adm.qrImage !== 'remove' ? `<img src="${adm.qrImage}" alt="New QR">` : s.payment.qr && adm.qrImage !== 'remove' ? `<img src="/api/qr?v=${esc(s.payment.qr)}" alt="Current QR">` : '<span class="adm-qr__none">No QR yet</span>'}
+          <div><label class="btn btn--ghost btn--sm" for="a-qr">Upload QR<input type="file" id="a-qr" accept="image/*" hidden></label>${(s.payment.qr || adm.qrImage) && adm.qrImage !== 'remove' ? ' <button type="button" class="linkbtn" id="a-qr-x">Remove</button>' : ''}<span class="hint">In GCash: QR → Receive → save the QR, then upload it here.</span></div></div></div>
+      <div class="field field--full"><label for="a-bname">Bank name <span class="opt">(optional)</span></label><input class="input" id="a-bname" data-pay="bankName" value="${esc(s.payment.bankName)}" maxlength="60" placeholder="e.g. BPI"></div>
+      <div class="field"><label for="a-baname">Bank account name</label><input class="input" id="a-baname" data-pay="bankAccountName" value="${esc(s.payment.bankAccountName)}" maxlength="60"></div>
+      <div class="field"><label for="a-banum">Bank account number</label><input class="input" id="a-banum" data-pay="bankAccountNumber" value="${esc(s.payment.bankAccountNumber)}" maxlength="30" inputmode="numeric"></div>
+    </div>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">3</span>Pick-up days</h2>
     <p class="fine">Tap a day to close or open it. <span class="key key--open"></span> open <span class="key key--closed"></span> closed <span class="key key--early"></span> too soon to order</p>
     <span class="label-like">Closed every week on</span>
     <div class="wdchips">${WD.map((w, i) => `<label class="wdchip"><input type="checkbox" data-wd="${i}" ${s.closedWeekdays.includes(i) ? 'checked' : ''}><span>${w}</span></label>`).join('')}</div>
@@ -1164,14 +1227,14 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
-    <h2><span class="num">3</span>Pick-up times</h2>
+    <h2><span class="num">4</span>Pick-up times</h2>
     <p class="fine">Customers choose one of these at checkout.</p>
     <div id="admTimes" class="adm-times">${s.pickupTimes.map((t, i) => `<div class="adm-time"><input class="input" data-time="${i}" value="${esc(t)}" maxlength="40" aria-label="Pick-up time ${i + 1}"><button type="button" class="iconbtn" data-deltime="${i}" aria-label="Remove this time" ${s.pickupTimes.length < 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
     <button type="button" class="btn btn--ghost btn--sm" id="admAddTime" ${s.pickupTimes.length >= 20 ? 'disabled' : ''}>+ Add a time</button>
   </section>
 
   <section class="panel adm-sec">
-    <h2><span class="num">4</span>Ordering rules</h2>
+    <h2><span class="num">5</span>Ordering rules</h2>
     <div class="adm-rule"><span>Order at least</span><div class="stepper"><button type="button" data-step="minLeadDays:-1" aria-label="Less">−</button><b id="v-lead">${s.minLeadDays}</b><button type="button" data-step="minLeadDays:1" aria-label="More">+</button></div><span>day${s.minLeadDays === 1 ? '' : 's'} before pick-up</span></div>
     <div class="adm-rule"><label for="a-cut">Last order time the day before</label><input class="input input--sm" type="time" id="a-cut" value="${esc(s.orderCutoff)}"><button type="button" class="linkbtn" id="a-cut-x" ${s.orderCutoff ? '' : 'hidden'}>No limit</button></div>
     <p class="fine adm-ex">${ruleExample(s)}</p>
@@ -1179,7 +1242,7 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
-    <h2><span class="num">5</span>Pick-up place</h2>
+    <h2><span class="num">6</span>Pick-up place</h2>
     <div class="fields">
       <div class="field"><label for="a-place">Place name</label><input class="input" id="a-place" data-pick="place" value="${esc(s.pickup.place)}" maxlength="60"></div>
       <div class="field"><label for="a-city">City</label><input class="input" id="a-city" data-pick="city" value="${esc(s.pickup.city)}" maxlength="60"></div>
@@ -1188,7 +1251,7 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
-    <h2><span class="num">6</span>Announcement <span class="opt">(optional)</span></h2>
+    <h2><span class="num">7</span>Announcement <span class="opt">(optional)</span></h2>
     <p class="fine">Shows as a small bar at the top of the website. Leave empty to hide it.</p>
     <textarea class="input" id="a-notice" rows="2" maxlength="200" placeholder="e.g. Christmas orders are open until Dec 20!">${esc(s.notice)}</textarea>
   </section>
@@ -1237,13 +1300,21 @@ function bindAdminEvents(box) {
   $('#a-cut-x').onclick = () => { s.orderCutoff = ''; rerender(); };
   $$('[data-pick]', box).forEach((inp) => inp.addEventListener('input', () => { s.pickup[inp.dataset.pick] = inp.value.trim(); if (inp.dataset.pick === 'mapUrl') $('#a-map-test').href = inp.value.trim(); syncSave(); }));
   $('#a-notice').addEventListener('input', (e) => { s.notice = e.target.value; syncSave(); });
+  $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
+  $$('[data-pay]', box).forEach((inp) => inp.addEventListener('input', () => { s.payment[inp.dataset.pay] = inp.value.trim(); syncSave(); }));
+  $('#a-qr').addEventListener('change', async (e) => {
+    const fl = e.target.files?.[0]; if (!fl) return;
+    try { adm.qrImage = await shrinkImage(fl, 900, 'image/png'); rerender(); } catch { toast('Couldn’t open that image. Please try a PNG or JPG.'); }
+  });
+  $('#a-qr-x')?.addEventListener('click', () => { adm.qrImage = s.payment.qr ? 'remove' : null; rerender(); });
   $('#admSave').onclick = async () => {
     const b = $('#admSave'); adm.busy = true; b.disabled = true; b.textContent = 'Saving…';
     s.pickupTimes = s.pickupTimes.map((t) => t.trim()).filter(Boolean);
     if (s.pickup.mapUrl && !/^https:\/\//.test(s.pickup.mapUrl)) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('The map link should start with https://'); $('#a-map').focus(); return; }
-    let j; try { j = await adminCall('save', { settings: s }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
+    let j; try { j = await adminCall('save', { settings: s, ...(adm.qrImage ? { qrImage: adm.qrImage } : {}) }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
     adm.busy = false; b.textContent = 'Save changes';
     if (!j.ok) { if (/password/i.test(j.error || '')) { adm.pw = ''; sstore.set('so_admin', ''); } toast(j.error || 'Couldn’t save. Please try again.'); syncSave(); return; }
+    adm.qrImage = null;
     adm.s = cleanSettings(j.settings); adm.saved = JSON.stringify(adm.s); adm.updatedAt = j.settings.updatedAt;
     applySettings(adm.s); store.set('so_settings', adm.s); showNotice();
     rerender(); toast('Saved! Customers see the changes right away.');

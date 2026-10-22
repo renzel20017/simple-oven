@@ -5,6 +5,7 @@ import { cleanSettings, defaultSettings, applySettings } from '../public/js/prod
 import { json, readJson, rateLimiter, originAllowed } from './lib.js';
 
 const KEY = 'settings';
+const QR_KEY = 'gcash-qr';
 let cache = { at: 0, value: null };
 
 export async function loadSettings(env, { fresh = false } = {}) {
@@ -44,7 +45,7 @@ export async function handleAdmin(request, env) {
   if (fails.blocked(ip)) return json(429, { ok: false, error: 'Too many wrong passwords. Please wait 15 minutes and try again.' });
   if (!env.ADMIN_PASSWORD) return json(503, { ok: false, error: 'The owner password isn’t set up yet (ADMIN_PASSWORD in Cloudflare).', setup: true });
   let body;
-  try { body = await readJson(request, 64 * 1024); } catch { return json(400, { ok: false, error: 'Bad request.' }); }
+  try { body = await readJson(request, 2.5 * 1024 * 1024); } catch { return json(400, { ok: false, error: 'That upload is too large. Please use a smaller QR image.' }); }
   if (!(await passwordOk(env, body?.password))) { fails.hit(ip); return json(401, { ok: false, error: 'Wrong password.' }); }
 
   if (body.action === 'login') {
@@ -54,10 +55,38 @@ export async function handleAdmin(request, env) {
   if (body.action === 'save') {
     if (!env.SETTINGS) return json(503, { ok: false, error: 'Saving isn’t set up yet: connect a KV storage called SETTINGS in Cloudflare (see README step 10).', setup: true });
     const clean = { ...cleanSettings(body.settings || {}), updatedAt: new Date().toISOString() };
+    // GCash QR image: stored separately so the settings stay small
+    if (body.qrImage === 'remove') { try { await env.SETTINGS.delete(QR_KEY); } catch {} clean.payment.qr = ''; }
+    else if (typeof body.qrImage === 'string' && body.qrImage) {
+      const m = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.exec(body.qrImage);
+      if (!m || body.qrImage.length > 2 * 1024 * 1024) return json(422, { ok: false, error: 'Please upload the QR as a JPG or PNG under 1.5 MB.' });
+      try { await env.SETTINGS.put(QR_KEY, body.qrImage); } catch { return json(502, { ok: false, error: 'Couldn’t save the QR right now. Please try again.' }); }
+      clean.payment.qr = String(Date.now());
+    }
     try { await env.SETTINGS.put(KEY, JSON.stringify(clean)); }
     catch (e) { console.error('[settings] save failed', e); return json(502, { ok: false, error: 'Couldn’t save right now. Please try again in a minute.' }); }
     cache = { at: Date.now(), value: { ...clean, storage: true } };
     return json(200, { ok: true, settings: clean });
   }
   return json(400, { ok: false, error: 'Unknown action.' });
+}
+
+// GET /api/qr?v=… → the owner's GCash QR image
+export async function handleQr(request, env) {
+  if (!env.SETTINGS) return new Response('Not found', { status: 404 });
+  const v = await env.SETTINGS.get(QR_KEY).catch(() => null);
+  const m = v && /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(v);
+  if (!m) return new Response('Not found', { status: 404 });
+  const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+  return new Response(bin, { headers: { 'Content-Type': m[1], 'Cache-Control': 'public, max-age=86400' } });
+}
+
+// Remembers GCash/bank reference numbers so the same payment screenshot can't be used for two orders.
+export async function refUsed(env, ref) {
+  if (!env.SETTINGS || !ref) return null;
+  try { return await env.SETTINGS.get('ref:' + ref); } catch { return null; }
+}
+export async function rememberRef(env, ref, orderId) {
+  if (!env.SETTINGS || !ref) return;
+  try { await env.SETTINGS.put('ref:' + ref, orderId, { expirationTtl: 60 * 60 * 24 * 120 }); } catch (e) { console.warn('[ref] not saved', e); }
 }

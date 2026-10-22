@@ -46,6 +46,7 @@ if (!env.NO_KV) {
   env.SETTINGS = {
     async get(k, type) { const v = read()[k]; return v == null ? null : type === 'json' ? JSON.parse(v) : v; },
     async put(k, v) { await writeFile(file, JSON.stringify({ ...read(), [k]: v })); },
+    async delete(k) { const o = read(); delete o[k]; await writeFile(file, JSON.stringify(o)); },
   };
 }
 const routes = {
@@ -53,6 +54,7 @@ const routes = {
   '/api/payment-proof': await import('./functions/api/payment-proof.js'),
   '/api/settings': await import('./functions/api/settings.js'),
   '/api/admin': await import('./functions/api/admin.js'),
+  '/api/qr': await import('./functions/api/qr.js'),
 };
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.woff2': 'font/woff2' };
 
