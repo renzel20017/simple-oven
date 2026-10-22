@@ -311,11 +311,6 @@ function heroPaper() {
           <a class="btn" href="#/shop">Order a box <span class="arrow">→</span></a>
           <a class="btn btn--ghost" href="#/how">How it works</a>
         </div>
-        <div class="hero__meta">
-          <div><strong>${PRODUCTS.filter((p) => p.category === 'cookies' && !p.sampler).length}</strong>cookie flavors</div>
-          <div><strong>2</strong>kinds of revel bars</div>
-          <div><strong>${peso(Math.min(...PRODUCTS.map(fromPrice)))}</strong>boxes from</div>
-        </div>
       </div>
       <div class="stage stage--solo" id="stage">
         <div class="stage__inner" id="stageInner" aria-hidden="true">
@@ -387,7 +382,7 @@ function viewHome() {
   <section class="section">
     <div class="wrap">
       <div class="section__head">
-        <div><p class="eyebrow rv">The menu</p><h2 class="h2 rv" style="--d:80ms">Pick your <em>favorite</em></h2></div>
+        <div><h2 class="eyebrow rv">The menu</h2></div>
       </div>
       <div class="grid grid--menu">${cookies.map((p, i) => cardHTML(p, i)).join('')}${sampler ? cardHTML(sampler, 0, true) : ''}${bars.map((p, i) => cardHTML(p, i + 1)).join('')}</div>
     </div>

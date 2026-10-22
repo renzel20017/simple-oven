@@ -63,7 +63,7 @@ export const PRODUCTS = [
     category: 'cookies',
     soldOut: false, // true = shows 'Sold out' and can't be ordered
     badge: 'Bestseller',
-    short: 'Brown butter dough, dark chocolate chips, sea salt.',
+    short: 'Brown butter dough loaded with premium dark chocolate chips, finished with sea salt flakes.',
     desc: 'Brown butter dough loaded with premium dark chocolate chips, finished with sea salt flakes.',
     variants: [
       { id: '4', label: 'Box of 4', price: 380 },
@@ -80,8 +80,8 @@ export const PRODUCTS = [
     category: 'cookies',
     soldOut: false, // true = shows 'Sold out' and can't be ordered
     badge: null,
-    short: 'Oreo chunks and white chocolate chips.',
-    desc: 'Brown butter dough loaded with Oreo cookie chunks and premium white chocolate chips.',
+    short: 'Brown butter dough with Oreo chunks and premium white chocolate chips.',
+    desc: 'Brown butter dough with Oreo chunks and premium white chocolate chips.',
     variants: [
       { id: '4', label: 'Box of 4', price: 380 },
       { id: '8', label: 'Box of 8', price: 740 },
@@ -97,7 +97,7 @@ export const PRODUCTS = [
     category: 'cookies',
     soldOut: false, // true = shows 'Sold out' and can't be ordered
     badge: null,
-    short: 'Rainbow sprinkles and white chocolate chips.',
+    short: 'Brown butter dough with rainbow sprinkles and premium white chocolate chips.',
     desc: 'Brown butter dough with rainbow sprinkles and premium white chocolate chips.',
     variants: [
       { id: '4', label: 'Box of 4', price: 380 },
@@ -114,7 +114,7 @@ export const PRODUCTS = [
     category: 'cookies',
     soldOut: false, // true = shows 'Sold out' and can't be ordered
     badge: 'Fan favorite',
-    short: 'Cream cheese center and white chocolate chips.',
+    short: 'Cocoa red velvet dough filled with a homemade cream cheese center and premium white chocolate chips.',
     desc: 'Cocoa red velvet dough filled with a homemade cream cheese center and premium white chocolate chips.',
     variants: [
       { id: '4', label: 'Box of 4', price: 430 },
@@ -148,7 +148,7 @@ export const PRODUCTS = [
     category: 'bars',
     soldOut: false,
     badge: 'New',
-    short: 'Oatmeal bars with a thick dark chocolate fudge.',
+    short: 'Oatmeal bars topped with a thick layer of dark chocolate fudge.',
     desc: 'Oatmeal bars topped with a thick layer of dark chocolate fudge.',
     variants: [{ id: 'box', label: 'Per box', price: 580 }],
     img: 'studio-revel',
@@ -162,7 +162,7 @@ export const PRODUCTS = [
     category: 'bars',
     soldOut: false,
     badge: 'New',
-    short: 'Oatmeal bar with dark chocolate fudge and Biscoff.',
+    short: 'Oatmeal cookie bar layered with dark chocolate fudge and Biscoff cookie butter.',
     desc: 'Oatmeal cookie bar layered with dark chocolate fudge and Biscoff cookie butter.',
     variants: [{ id: 'box', label: 'Per box', price: 660 }],
     img: null,
