@@ -165,9 +165,9 @@ export const PRODUCTS = [
     short: 'Oatmeal cookie bar layered with dark chocolate fudge and Biscoff cookie butter.',
     desc: 'Oatmeal cookie bar layered with dark chocolate fudge and Biscoff cookie butter.',
     variants: [{ id: 'box', label: 'Per box', price: 660 }],
-    img: 'studio-biscoff',
+    img: 'biscoff-bar',
     art: 'biscoff',
-    gallery: ['studio-biscoff', 'biscoff-tray'],
+    gallery: ['biscoff-bar', 'biscoff-tray'],
     tone: '#b5773a',
   },
 ];
