@@ -449,7 +449,7 @@ function viewHome() {
 
 function viewShop(cat = 'all') {
   const list = PRODUCTS.filter((p) => cat === 'all' || p.category === cat);
-  const title = { all: 'The <em>whole</em> menu', cookies: 'Cookies', bars: 'Revel <em>bars</em>' }[cat] || 'Menu';
+  const title = { all: 'Menu', cookies: 'Cookies', bars: 'Bars' }[cat] || 'Menu';
   return `<div class="view wrap">
     <div class="pagehead">
       <p class="eyebrow">Shop</p>

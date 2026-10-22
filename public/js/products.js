@@ -177,9 +177,9 @@ export const PRODUCTS = [
 ];
 
 export const CATEGORIES = [
-  { id: 'all', label: 'Everything' },
+  { id: 'all', label: 'All' },
   { id: 'cookies', label: 'Cookies' },
-  { id: 'bars', label: 'Revel Bars' },
+  { id: 'bars', label: 'Bars' },
 ];
 
 export const findProduct = (id) => PRODUCTS.find((p) => p.id === id);
