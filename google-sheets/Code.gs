@@ -1,10 +1,12 @@
 /**
- * Simple Oven — order log for Google Sheets
- * ------------------------------------------
+ * Simple Oven — order log for Google Sheets + Google Calendar
+ * -------------------------------------------------------------
  * Paste this whole file into Extensions → Apps Script of your Google Sheet.
  * Then: Project Settings → Script properties → add  SECRET = (any long random text)
+ *       (optional) CALENDAR_ID = the calendar to use (default: your main Google Calendar)
  * Deploy → New deployment → Web app → Execute as: Me · Who has access: Anyone → Deploy.
- * Copy the Web app URL into Vercel as SHEETS_WEBHOOK_URL, and the same SECRET as SHEETS_SECRET.
+ * Copy the Web app URL into Cloudflare as SHEETS_WEBHOOK_URL, and the same SECRET as SHEETS_SECRET.
+ * Every order becomes a row in the "Orders" sheet AND an event on its pick-up date and time.
  */
 const SHEET_NAME = 'Orders';
 const HEADERS = ['Order no.', 'Received', 'Status', 'Payment proof', 'Name', 'Mobile', 'Email', 'IG / FB',
@@ -19,7 +21,8 @@ function doPost(e) {
     if (data.action === 'order') {
       const o = data.order;
       sh.appendRow([o.orderId, new Date(o.createdAt), 'New', '', o.name, "'" + o.phone, o.email, o.social,
-        o.fulfillment === 'pickup' ? 'Pick-up' : 'Delivery', o.date, o.time, o.zone, o.address, o.items, o.subtotal, o.payment, o.gift, o.notes]);
+        o.fulfillment, o.date, o.time, o.zone, o.address, o.items, o.subtotal, o.payment, o.gift, o.notes]);
+      try { addToCalendar(o); } catch (err) { console.warn('calendar: ' + err); }
       return json({ ok: true });
     }
     if (data.action === 'payment') {
@@ -57,4 +60,46 @@ function sheet() {
 
 function json(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ── Google Calendar: one event per order on the pick-up date/time ──
+function addToCalendar(o) {
+  if (!o.date) return;
+  const id = PropertiesService.getScriptProperties().getProperty('CALENDAR_ID');
+  const cal = id ? CalendarApp.getCalendarById(id) : CalendarApp.getDefaultCalendar();
+  if (!cal) return;
+  const title = '🍪 ' + o.name + ' · ' + o.items + ' · ₱' + o.subtotal;
+  const desc = [
+    'Order ' + o.orderId,
+    o.fulfillment + ' · ' + (o.time || ''),
+    'Mobile: ' + o.phone + (o.social ? ' · ' + o.social : ''),
+    'Items: ' + o.items,
+    'Total: ₱' + o.subtotal + ' · ' + o.payment,
+    o.gift ? 'Gift: ' + o.gift : '',
+    o.notes ? 'Notes: ' + o.notes : '',
+  ].filter(String).join('\n');
+  const slot = parseSlot(o.date, o.time);
+  const ev = slot ? cal.createEvent(title, slot[0], slot[1], { description: desc })
+                  : cal.createAllDayEvent(title, new Date(o.date + 'T00:00:00+08:00'), { description: desc });
+  ev.setColor(o.gift ? CalendarApp.EventColor.MAUVE : CalendarApp.EventColor.ORANGE);
+  ev.addPopupReminder(24 * 60); // reminder the day before
+}
+// "Morning (9am – 12nn)" → 9:00–12:00 on that date (Manila time). Returns null if no time is found.
+function parseSlot(date, time) {
+  const re = /(\d{1,2})(?::(\d{2}))?\s*(am|pm|nn|mn)?/gi, hits = [];
+  let m;
+  while ((m = re.exec(time || '')) && hits.length < 2) {
+    let h = +m[1]; const min = +(m[2] || 0), ap = (m[3] || '').toLowerCase();
+    if (h > 23) continue;
+    if (ap === 'pm' && h < 12) h += 12;
+    if (ap === 'am' && h === 12) h = 0;
+    if (ap === 'mn') h = 0;
+    hits.push([h, min]);
+  }
+  if (!hits.length) return null;
+  const at = (hm) => new Date(date + 'T' + String(hm[0]).padStart(2, '0') + ':' + String(hm[1]).padStart(2, '0') + ':00+08:00');
+  const start = at(hits[0]);
+  let end = hits[1] ? at(hits[1]) : new Date(start.getTime() + 60 * 60 * 1000);
+  if (end <= start) end = new Date(start.getTime() + 60 * 60 * 1000);
+  return [start, end];
 }

@@ -138,9 +138,9 @@ Save the file and redeploy (or push to GitHub). The server uses the same file, s
 
 The server reads the same file, so a sold-out flavor or closed date can't be ordered, even by tricking the page.
 
-## 8. Google Sheets order log (optional, about 5 minutes)
+## 8. Google Sheets order log + Google Calendar (optional, about 5 minutes)
 
-Every order becomes a row (with a **Status** dropdown: New → Check payment → Confirmed → Baking → Done). When a payment screenshot arrives, that order's **Payment proof** cell turns green.
+Every order becomes an **event on your Google Calendar** at its pick-up date and time (reminder the day before) and a row in a Sheet (with a **Status** dropdown: New → Check payment → Confirmed → Baking → Done). When a payment screenshot arrives, that order's **Payment proof** cell turns green.
 
 1. Create a new Google Sheet (e.g. "Simple Oven Orders").
 2. **Extensions → Apps Script**. Delete what's there and paste everything from `google-sheets/Code.gs`. Click 💾 Save.
