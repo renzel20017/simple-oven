@@ -564,7 +564,7 @@ function receiptHTML({ cta = false, order = null } = {}) {
     ${lines.map((l) => `<div class="rline"><span>${l.qty} × ${esc(l.name)}<br><small style="color:var(--muted)">${esc(l.variant)}</small></span><span>${peso(l.total)}</span></div>`).join('')}
     <hr>
     <div class="rline"><span>Subtotal</span><span>${peso(subtotal)}</span></div>
-    ${tip ? `<div class="rline"><span>Tip</span><span>${peso(tip)}</span></div>` : ''}
+    ${tip ? `<div class="rline"><span>Tip ♡</span><span>${peso(tip)}</span></div>` : ''}
     <div class="rline"><span>${feeLabel}</span><span>${feeVal}</span></div>
     <div class="rline rline--total"><span>Total</span><span>${peso(total)}${feeTotal ? `<small class="rline__extra">${feeTotal}</small>` : ''}</span></div>
     ${cta ? `<a class="btn btn--block" style="margin-top:18px" href="#/checkout">Checkout <span class="arrow">→</span></a>` : ''}
@@ -606,10 +606,6 @@ function viewCheckout() {
         <div class="panel">
           <h2><span class="num">2</span>Pick-up</h2>
           <input type="hidden" name="fulfillment" value="pickup">
-          <div class="pickspot">
-            <span class="pickspot__pin" aria-hidden="true">📍</span>
-            <div><b>Pick up at ${esc(SHOP.pickup.place)}</b><span>${esc(SHOP.pickup.city)}</span>${SHOP.pickup.mapUrl ? `<a class="pickspot__map" href="${esc(SHOP.pickup.mapUrl)}" target="_blank" rel="noopener">Open map pin ↗</a>` : ''}</div>
-          </div>
           <span class="label-like" id="byLbl" style="display:block;margin:16px 0 8px">Who's picking up?</span>
           <div class="toggle" role="radiogroup" aria-labelledby="byLbl">
             <label><input type="radio" name="pickupBy" value="self" ${saved.pickupBy !== 'rider' ? 'checked' : ''}><span><b>I'll pick it up</b></span></label>
