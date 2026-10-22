@@ -1,7 +1,7 @@
 // Order logic for POST /api/order (used by functions/api/order.js).
 // Re-checks every field, recomputes prices from public/js/products.js, rejects sold-out items
 // and closed dates, emails the order via Resend, then logs it to Google Sheets (optional).
-import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst, addonPrice, addonText, canWrap } from '../public/js/products.js';
+import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst, addonPrice, addonText, canWrap, cleanTip } from '../public/js/products.js';
 import { useSettings, refUsed, rememberRef } from './settings.js';
 import { esc, clean, peso, todayManila, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
 
@@ -92,6 +92,8 @@ export function validateOrder(body) {
   else if (!lines.length) errors.items = 'Your cart is empty.';
   o.lines = lines;
   o.subtotal = lines.reduce((s, l) => s + l.total, 0);
+  o.tip = cleanTip(b.tip);
+  o.total = o.subtotal + o.tip;
   return { order: o, errors };
 }
 
@@ -111,7 +113,8 @@ export function ownerEmail(o) {
       ${o.gift ? `<p style="margin:0 0 6px;display:inline-block;background:#8b1d24;color:#fff;border-radius:99px;padding:4px 10px;font-size:13px;font-weight:700">🎁 GIFT ORDER${o.giftHidePrices ? ' · hide prices' : ''}</p>` : ''}
       <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:12px">
         ${o.lines.map((l) => `<tr><td style="padding:8px 0;border-bottom:1px dashed #d8ccb8"><b>${l.qty} ×</b> ${esc(l.name)}<br><span style="color:#7b6a5c;font-size:13px">${esc(l.variant)} · ${peso(l.price)}</span></td><td style="padding:8px 0;border-bottom:1px dashed #d8ccb8;text-align:right;font-weight:700">${peso(l.total)}</td></tr>`).join('')}
-        <tr><td style="padding:12px 0 0;font-size:18px;font-weight:800">Subtotal</td><td style="padding:12px 0 0;text-align:right;font-size:18px;font-weight:800">${peso(o.subtotal)}</td></tr>
+        ${o.tip ? `<tr><td style="padding:12px 0 0">Subtotal</td><td style="padding:12px 0 0;text-align:right">${peso(o.subtotal)}</td></tr><tr><td style="padding:4px 0 0">Tip for the baker 💛</td><td style="padding:4px 0 0;text-align:right">${peso(o.tip)}</td></tr>` : ''}
+        <tr><td style="padding:12px 0 0;font-size:18px;font-weight:800">Total</td><td style="padding:12px 0 0;text-align:right;font-size:18px;font-weight:800">${peso(o.total)}</td></tr>
         ${o.fulfillment === 'delivery' ? `<tr><td style="color:#7b6a5c;font-size:13px;padding-top:4px">Rider fee (${esc(o.zoneInfo?.label || '')})</td><td style="color:#7b6a5c;font-size:13px;padding-top:4px;text-align:right">${esc(feeText(o.zoneInfo))}</td></tr>` : ''}
       </table>
       <h2 style="font-family:Georgia,serif;font-size:19px;margin:26px 0 8px">Customer</h2>
@@ -135,14 +138,15 @@ export function ownerEmail(o) {
     o.gift ? `GIFT ORDER for ${o.giftTo}${o.giftHidePrices ? ' (hide prices)' : ''}` : null,
     '',
     ...o.lines.map((l) => `${l.qty} x ${l.name} (${l.variant}) — ${peso(l.total)}`),
-    `Subtotal: ${peso(o.subtotal)}`,
+    o.tip ? `Subtotal: ${peso(o.subtotal)} + tip ${peso(o.tip)}` : null,
+    `Total: ${peso(o.total)}`,
     o.fulfillment === 'delivery' ? `Rider fee: ${feeText(o.zoneInfo)} — ${o.zoneInfo?.label}` : null,
     '',
     `Name: ${o.name}`, `Mobile: ${o.phone}`, o.email ? `Email: ${o.email}` : null, o.social ? `IG/FB: ${o.social}` : null,
     o.fulfillment === 'delivery' ? `Address: ${o.address}` : null, `Payment: ${o.payment}${o.paidUpfront ? ' (screenshot attached — check your app before baking)' : ''}`, o.notes ? `Notes: ${o.notes}` : null,
     o.gift && o.giftPhone ? `Recipient mobile: ${o.giftPhone}` : null, o.gift && o.giftNote ? `Gift note: ${o.giftNote}` : null,
   ].filter((x) => x != null).join('\n');
-  return { html, text, subject: `${o.gift ? '🎁' : '🍪'} New order ${o.orderId} · ${o.name} · ${peso(o.subtotal)}${o.paidUpfront ? ' · 💸 paid, please verify' : ''}` };
+  return { html, text, subject: `${o.gift ? '🎁' : '🍪'} New order ${o.orderId} · ${o.name} · ${peso(o.total)}${o.tip ? ' (incl. tip)' : ''}${o.paidUpfront ? ' · 💸 paid, please verify' : ''}` };
 }
 
 function customerEmail(o) {
@@ -150,7 +154,7 @@ function customerEmail(o) {
   <h1 style="font-family:Georgia,serif;margin:0 0 8px">Thank you, ${esc(o.name.split(' ')[0])}!</h1>
   <p>We received your order <b>${esc(o.orderId)}</b>. We'll message you soon to confirm it and the final total.</p>
   <table style="width:100%;border-collapse:collapse;font-size:15px">${o.lines.map((l) => `<tr><td style="padding:6px 0">${l.qty} × ${esc(l.name)} <span style="color:#7b6a5c">(${esc(l.variant)})</span></td><td style="text-align:right">${peso(l.total)}</td></tr>`).join('')}
-  <tr><td style="padding-top:10px;font-weight:800">Subtotal</td><td style="text-align:right;font-weight:800;padding-top:10px">${peso(o.subtotal)}</td></tr></table>
+  ${o.tip ? `<tr><td style="padding-top:6px">Tip</td><td style="text-align:right;padding-top:6px">${peso(o.tip)}</td></tr>` : ''}<tr><td style="padding-top:10px;font-weight:800">Total</td><td style="text-align:right;font-weight:800;padding-top:10px">${peso(o.total)}</td></tr></table>
   <p style="color:#7b6a5c;font-size:13px">simple oven · home-baked goods</p></div></div></body></html>`;
   return { html, subject: `We got your order ${o.orderId} 🍪` };
 }
@@ -204,7 +208,7 @@ export async function handleOrder(request, env) {
   const extras = [logToSheet(env, { action: 'order', order: {
     orderId: order.orderId, createdAt: new Date(order.createdAt).toISOString(), name: order.name, phone: order.phone, email: order.email, social: order.social,
     fulfillment: order.pickupBy === 'rider' ? 'Pick-up (own rider)' : 'Pick-up', date: order.date, time: order.time, address: '', zone: '',
-    items: order.lines.map((l) => `${l.qty}× ${l.name} (${l.variant})`).join(', '), subtotal: order.subtotal, payment: order.payment + (order.paidUpfront ? ' (screenshot in email)' : ''),
+    items: order.lines.map((l) => `${l.qty}× ${l.name} (${l.variant})`).join(', ') + (order.tip ? ` + ₱${order.tip} tip` : ''), subtotal: order.total, payment: order.payment + (order.paidUpfront ? ' (screenshot in email)' : ''),
     gift: order.gift ? `For ${order.giftTo}${order.giftNote ? ' — “' + order.giftNote + '”' : ''}` : '', notes: order.notes,
   } })];
   if (env.SEND_CUSTOMER_CONFIRMATION === 'true' && order.email) {
@@ -220,7 +224,7 @@ export async function handleOrder(request, env) {
       fulfillment: order.fulfillment, pickupBy: order.pickupBy, date: order.date, time: order.time, payment: order.payment, paid: !!order.paidUpfront, payRef: order.payRef,
       zone: null, gift: order.gift ? { to: order.giftTo, hidePrices: order.giftHidePrices } : null,
       lines: order.lines.map(({ name, variant, qty, total }) => ({ name, variant, qty, total })),
-      subtotal: order.subtotal,
+      subtotal: order.subtotal, tip: order.tip, total: order.total,
     },
   };
   if (idem) { recent.set(idem, response); if (recent.size > 500) recent.delete(recent.keys().next().value); }

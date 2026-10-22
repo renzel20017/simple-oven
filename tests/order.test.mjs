@@ -50,6 +50,13 @@ assert.deepEqual(validateOrder({ ...base, time: '1pm – 3pm', items: one }).err
 applySettings({ ...defaultSettings(), orderCutoff: '00:00' });
 assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest day');
 assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
+// tips
+applySettings({ ...defaultSettings(), requirePayment: false });
+r = validateOrder({ ...base, items: one, tip: 50 }); assert.equal(r.order.tip, 50); assert.equal(r.order.total, 410 + 50, 'tip added to total');
+assert.equal(validateOrder({ ...base, items: one, tip: -20 }).order.tip, 0, 'negative tip ignored');
+assert.equal(validateOrder({ ...base, items: one, tip: 999999 }).order.tip, 5000, 'tip capped');
+applySettings({ ...defaultSettings(), requirePayment: false, tips: { enabled: false } });
+assert.equal(validateOrder({ ...base, items: one, tip: 50 }).order.tip, 0, 'tips off → no tip');
 // add-ons
 applySettings({ ...defaultSettings(), requirePayment: false });
 r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '8', qty: 2, wrap: true, ribbon: 'Pink' }, { pid: 'dark-chocolate-revel', vid: 'box', qty: 1, wrap: true, ribbon: '' }] });

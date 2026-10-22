@@ -19,6 +19,7 @@ export const SHOP = {
   maxAheadDays: 60,    // how far ahead customers can book
   pickupTimes: ['Morning (9am – 12nn)', 'Afternoon (12nn – 5pm)', 'Evening (5pm – 8pm)'],
   notice: '',          // optional announcement shown at the top of the site
+  tips: { enabled: true, amounts: [20, 50, 100] }, // optional tip at checkout (owner page can change)
   ribbonColors: [],    // ribbon colors customers can pick (edit on the owner page). Empty = "our choice"
   maxQtyPerItem: 20,
   // Website look: 'paper' (Option A), 'night' (Option B) or 'sticker' (Option C)
@@ -200,7 +201,7 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
@@ -234,6 +235,10 @@ export function cleanSettings(raw) {
     out.payment.qr = /^\d{10,16}$/.test(String(r.payment.qr || '')) ? String(r.payment.qr) : '';
   }
   if (typeof r.requirePayment === 'boolean') out.requirePayment = r.requirePayment;
+  if (r.tips && typeof r.tips === 'object') {
+    out.tips = { enabled: r.tips.enabled !== false, amounts: d.tips.amounts };
+    if (Array.isArray(r.tips.amounts)) { const a = [...new Set(r.tips.amounts.map((x) => Math.round(+x)).filter((x) => x > 0 && x <= 5000))].sort((x, y) => x - y).slice(0, 5); if (a.length) out.tips.amounts = a; }
+  }
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   return out;
 }
@@ -269,3 +274,6 @@ export function addonText(p, v, a = {}) {
   if (a.ribbon != null && a.ribbon !== false) t.push(`Ribbon (${a.ribbon || 'our choice'})`);
   return t.join(' · ');
 }
+
+export const MAX_TIP = 5000;
+export const cleanTip = (v) => { const n = Math.round(Number(v)); return SHOP.tips?.enabled && Number.isFinite(n) && n > 0 ? Math.min(MAX_TIP, n) : 0; };

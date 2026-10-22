@@ -1,4 +1,4 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText, cleanTip } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -553,6 +553,7 @@ function receiptHTML({ cta = false, order = null } = {}) {
   const st = order ? { fulfillment: order.fulfillment, zone: order.zone, gift: order.gift } : formState();
   const lines = order ? order.lines : cart.lines().map((l) => ({ name: l.p.name, variant: l.v.label + (l.extra ? ' · ' + l.extra : ''), qty: l.qty, total: l.total }));
   const subtotal = order ? order.subtotal : cart.subtotal();
+  const tip = order ? order.tip || 0 : currentTip(), total = subtotal + tip;
   const date = new Date(order?.createdAt || Date.now()).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
   const [feeLabel, feeVal, feeTotal] = feeRow(st.fulfillment || 'pickup', st.zone);
   return `<aside class="receipt" id="receipt" aria-label="Order summary">
@@ -563,8 +564,9 @@ function receiptHTML({ cta = false, order = null } = {}) {
     ${lines.map((l) => `<div class="rline"><span>${l.qty} × ${esc(l.name)}<br><small style="color:var(--muted)">${esc(l.variant)}</small></span><span>${peso(l.total)}</span></div>`).join('')}
     <hr>
     <div class="rline"><span>Subtotal</span><span>${peso(subtotal)}</span></div>
+    ${tip ? `<div class="rline"><span>Tip for the baker 💛</span><span>${peso(tip)}</span></div>` : ''}
     <div class="rline"><span>${feeLabel}</span><span>${feeVal}</span></div>
-    <div class="rline rline--total"><span>Total</span><span>${peso(subtotal)}${feeTotal ? `<small class="rline__extra">${feeTotal}</small>` : ''}</span></div>
+    <div class="rline rline--total"><span>Total</span><span>${peso(total)}${feeTotal ? `<small class="rline__extra">${feeTotal}</small>` : ''}</span></div>
     ${cta ? `<a class="btn btn--block" style="margin-top:18px" href="#/checkout">Checkout <span class="arrow">→</span></a>` : ''}
     <p class="receipt__thanks">thank you!</p>
     <p class="receipt__sub" style="margin:0">${esc(SHOP.instagramHandle)}</p>
@@ -646,6 +648,7 @@ function viewCheckout() {
 
         ${mustPayFirst() ? payNowPanel() : `<div class="panel">
           <h2><span class="num">4</span>Payment & notes</h2>
+          ${tipHTML()}
           <p class="fine">No payment yet. After you place your order you'll see how to pay, and you can upload your payment screenshot right there.</p>
           <div class="fields">
             <div class="field field--full"><label for="f-pay">How will you pay?</label><select class="input" id="f-pay" name="payment"><option>GCash</option><option>Bank transfer</option></select><span class="err" id="e-payment"></span></div>
@@ -659,6 +662,31 @@ function viewCheckout() {
   </div>`;
 }
 
+
+/* tip for the baker (optional) */
+function tipHTML() {
+  const t = SHOP.tips; if (!t?.enabled) return '';
+  return `<div class="tipbox">
+    <span class="label-like" id="tipLbl">Add a tip for the baker? <span class="opt">(optional)</span></span>
+    <div class="tipchips" role="radiogroup" aria-labelledby="tipLbl">
+      <label class="tipchip"><input type="radio" name="tipChoice" value="0" checked><span>No tip</span></label>
+      ${t.amounts.map((a) => `<label class="tipchip"><input type="radio" name="tipChoice" value="${a}"><span>${peso(a)}</span></label>`).join('')}
+      <label class="tipchip"><input type="radio" name="tipChoice" value="other"><span>Other</span></label>
+    </div>
+    <input class="input input--sm tipother" id="f-tipOther" type="number" inputmode="numeric" min="1" max="5000" step="1" placeholder="₱ amount" hidden aria-label="Tip amount">
+  </div>`;
+}
+function currentTip() {
+  const f = $('#coForm'); if (!f) return 0;
+  const c = f.querySelector('input[name=tipChoice]:checked')?.value;
+  if (!c) return 0;
+  return cleanTip(c === 'other' ? $('#f-tipOther')?.value : c);
+}
+function syncTotals() {
+  const tot = cart.subtotal() + currentTip();
+  if ($('#placeTotal')) $('#placeTotal').textContent = peso(tot);
+  if ($('#payAmt')) $('#payAmt').textContent = peso(tot);
+}
 /* pay-first checkout: customer pays, then adds the reference no. + screenshot before placing the order */
 const placeBtnHTML = () => `<div class="hp" aria-hidden="true"><label>Leave this empty<input name="company" tabindex="-1" autocomplete="off"></label></div>
           <div class="alert alert--err" id="coErr" role="alert" hidden></div>
@@ -669,7 +697,8 @@ function payNowPanel() {
   const methods = [p.gcashNumber && 'GCash', p.bankAccountNumber && 'Bank transfer'].filter(Boolean);
   return `<div class="panel">
           <h2><span class="num">4</span>Pay now</h2>
-          <p class="fine">Send <b>${peso(cart.subtotal())}</b>, then upload your payment screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
+          ${tipHTML()}
+          <p class="fine">Send <b id="payAmt">${peso(cart.subtotal())}</b>, then upload your payment screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
           ${methods.length > 1 ? `<div class="toggle" role="radiogroup" aria-label="Pay with" style="margin-top:12px">${methods.map((m, i) => `<label><input type="radio" name="payment" value="${m}" ${i ? '' : 'checked'}><span><b>${m === 'Bank transfer' ? esc(p.bankName || m) : m}</b></span></label>`).join('')}</div>` : `<input type="hidden" name="payment" value="${methods[0]}">`}
           <div class="paycards" id="coPay">${payDetailsHTML(methods[0], true)}</div>
           <div class="fields" style="margin-top:14px">
@@ -714,7 +743,7 @@ function bindCheckout() {
     other.hidden = f.querySelector('input[name=date]:checked')?.value !== 'other';
     $('#giftFields').hidden = !$('#f-gift').checked;
     $('#giftCount').textContent = $('#f-giftNote').value.length;
-    refreshReceipt();
+    refreshReceipt(); syncTotals();
   };
   f.addEventListener('change', (e) => {
     if (e.target.name === 'date' && e.target.value === 'other') setTimeout(() => { other.focus(); other.showPicker?.(); }, 50);
@@ -724,6 +753,8 @@ function bindCheckout() {
   $('#f-giftTo').addEventListener('input', () => refreshReceipt());
   sync();
   bindPayNow(f);
+  f.addEventListener('change', (e) => { if (e.target.name === 'tipChoice') { const o = $('#f-tipOther'); o.hidden = e.target.value !== 'other'; if (!o.hidden) o.focus(); } });
+  $('#f-tipOther')?.addEventListener('input', () => { refreshReceipt(); syncTotals(); });
   $$('.input, input[name=date]', f).forEach((i) => i.addEventListener('input', () => { i.closest('.field')?.classList.remove('has-err'); const e = $('#e-' + (i.name === 'dateOther' ? 'date' : i.name)); if (e) e.textContent = ''; }));
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -774,7 +805,7 @@ async function submitOrder(d) {
   // the same key is reused if the customer retries, so the server can ignore duplicates
   let key = sstore.get('so_idem', null);
   if (!key) { key = (crypto.randomUUID?.() || String(Date.now()) + Math.random()); sstore.set('so_idem', key); }
-  const payload = { ...d, gift: d.gift === 'on', giftHidePrices: d.giftHidePrices === 'on', items: cart.items.map(({ pid, vid, qty, wrap, ribbon }) => ({ pid, vid, qty, wrap: !!wrap, ribbon: ribbon ?? null })), idempotencyKey: key };
+  const payload = { ...d, gift: d.gift === 'on', giftHidePrices: d.giftHidePrices === 'on', tip: currentTip(), items: cart.items.map(({ pid, vid, qty, wrap, ribbon }) => ({ pid, vid, qty, wrap: !!wrap, ribbon: ribbon ?? null })), idempotencyKey: key };
   try {
     let data;
     if (window.SO_DEMO) { await new Promise((r) => setTimeout(r, 900)); data = demoOrder(payload); }
@@ -815,7 +846,8 @@ async function packBox(name) {
 function demoOrder(p) {
   const lines = p.items.map((i) => { const pr = findProduct(i.pid), v = findVariant(pr, i.vid), x = addonText(pr, v, i), u = v.price + addonPrice(pr, v, i); return { name: pr.name, variant: v.label + (x ? ' · ' + x : ''), qty: i.qty, total: u * i.qty }; });
   const z = null;
-  return { ok: true, order: { orderId: 'SO-261023-DEMO', lines, subtotal: lines.reduce((s, l) => s + l.total, 0), fulfillment: p.fulfillment, date: p.date, time: p.time, name: p.name, phone: p.phone, payment: p.payment, paid: mustPayFirst(), payRef: (p.payRef || '').replace(/\s+/g, '').toUpperCase(), pickupBy: p.pickupBy, zone: z, gift: p.gift ? { to: p.giftTo, hidePrices: p.giftHidePrices } : null, createdAt: Date.now() } };
+  const sub = lines.reduce((s, l) => s + l.total, 0), tip = cleanTip(p.tip);
+  return { ok: true, order: { orderId: 'SO-261023-DEMO', lines, subtotal: sub, tip, total: sub + tip, fulfillment: p.fulfillment, date: p.date, time: p.time, name: p.name, phone: p.phone, payment: p.payment, paid: mustPayFirst(), payRef: (p.payRef || '').replace(/\s+/g, '').toUpperCase(), pickupBy: p.pickupBy, zone: z, gift: p.gift ? { to: p.giftTo, hidePrices: p.giftHidePrices } : null, createdAt: Date.now() } };
 }
 
 /* ───────────── how to pay + payment proof upload ───────────── */
@@ -932,7 +964,7 @@ function viewThanks() {
       </ol>
       ${cash || o.paid ? '' : `<section class="panel paypanel">
         <h2><span class="num">₱</span>How to pay</h2>
-        <p class="fine">Amount: <b>${peso(o.subtotal)}</b>. Please pay after we confirm your order.</p>
+        <p class="fine">Amount: <b>${peso(o.total ?? o.subtotal)}</b>. Please pay after we confirm your order.</p>
         <div class="paycards">${payDetailsHTML(o.payment)}</div>
         <h3 class="paypanel__h">Upload your payment screenshot</h3>
         ${proofHTML({ orderId: o.orderId, phone: o.phone, name: o.name }, true)}
@@ -1265,6 +1297,12 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
+    <h2><span class="num">₱</span>Tips</h2>
+    <label class="adm-item adm-item--plain"><span class="adm-item__name">Ask customers for a tip<i>${s.tips.enabled ? 'On: tip buttons show at checkout' : 'Off'}</i></span><input type="checkbox" class="sw" id="a-tipon" ${s.tips.enabled ? 'checked' : ''} aria-label="Ask customers for a tip"></label>
+    <div class="field" style="margin-top:10px"><label for="a-tips">Tip amounts (₱, separated by commas)</label><input class="input" id="a-tips" value="${esc(s.tips.amounts.join(', '))}" maxlength="60" inputmode="numeric" placeholder="20, 50, 100"><span class="hint">Customers can also type their own amount with "Other".</span></div>
+  </section>
+
+  <section class="panel adm-sec">
     <h2><span class="num">5</span>Ordering rules</h2>
     <div class="adm-rule"><span>Order at least</span><div class="stepper"><button type="button" data-step="minLeadDays:-1" aria-label="Less">−</button><b id="v-lead">${s.minLeadDays}</b><button type="button" data-step="minLeadDays:1" aria-label="More">+</button></div><span>day${s.minLeadDays === 1 ? '' : 's'} before pick-up</span></div>
     <div class="adm-rule"><label for="a-cut">Last order time the day before</label><input class="input input--sm" type="time" id="a-cut" value="${esc(s.orderCutoff)}"><button type="button" class="linkbtn" id="a-cut-x" ${s.orderCutoff ? '' : 'hidden'}>No limit</button></div>
@@ -1331,6 +1369,8 @@ function bindAdminEvents(box) {
   $('#a-cut-x').onclick = () => { s.orderCutoff = ''; rerender(); };
   $$('[data-pick]', box).forEach((inp) => inp.addEventListener('input', () => { s.pickup[inp.dataset.pick] = inp.value.trim(); if (inp.dataset.pick === 'mapUrl') $('#a-map-test').href = inp.value.trim(); syncSave(); }));
   $('#a-notice').addEventListener('input', (e) => { s.notice = e.target.value; syncSave(); });
+  $('#a-tipon').addEventListener('change', (e) => { s.tips.enabled = e.target.checked; rerender(); });
+  $('#a-tips').addEventListener('input', (e) => { const a = e.target.value.split(',').map((x) => Math.round(+x.replace(/[^\d.]/g, ''))).filter((x) => x > 0); if (a.length) s.tips.amounts = a; syncSave(); });
   $('#a-ribbons').addEventListener('input', (e) => { s.ribbonColors = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); syncSave(); });
   $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
   $$('[data-pay]', box).forEach((inp) => inp.addEventListener('input', () => { s.payment[inp.dataset.pay] = inp.value.trim(); syncSave(); }));
