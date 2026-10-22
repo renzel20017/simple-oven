@@ -6,7 +6,7 @@ import { PRODUCTS, SHOP, nextOpenDates, addDays, applySettings, defaultSettings,
 
 const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const day = nextOpenDates(addDays(today, 3), 1)[0];
-const base = { name: 'Ana Reyes', phone: '0917 123 4567', fulfillment: 'delivery', zone: 'near', address: '12 Mabini St, Makati City', date: day, time: 'Morning (9am – 12nn)', payment: 'GCash' };
+const base = { name: 'Ana Reyes', phone: '0917 123 4567', fulfillment: 'delivery', zone: 'near', address: '12 Mabini St, Makati City', date: day, time: 'Morning (9am – 12nn)', payment: 'GCash', payRef: '1012345678901', proof: 'data:image/png;base64,iVBORw0KGgo=' };
 const one = [{ pid: 'sampler', vid: '4', qty: 1 }];
 
 let r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '8', qty: 2, price: 1 }, { pid: 'biscoff-revel', vid: 'box', qty: 1 }] });
@@ -50,13 +50,22 @@ assert.deepEqual(validateOrder({ ...base, time: '1pm – 3pm', items: one }).err
 applySettings({ ...defaultSettings(), orderCutoff: '00:00' });
 assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest day');
 assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
+// add-ons
+applySettings({ ...defaultSettings(), requirePayment: false });
+r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '8', qty: 2, wrap: true, ribbon: 'Pink' }, { pid: 'dark-chocolate-revel', vid: 'box', qty: 1, wrap: true, ribbon: '' }] });
+assert.deepEqual(r.errors, {});
+assert.equal(r.order.lines[0].total, (740 + 10 + 10) * 2, 'wrap ₱10 for 8pcs + ribbon ₱10');
+assert.equal(r.order.lines[1].total, 580 + 10, 'bars: no wrap, ribbon only');
+assert.match(r.order.lines[0].variant, /Individually packed · Ribbon/);
 applySettings({ ...defaultSettings(), payment: { gcashName: 'A', gcashNumber: '0917 000 0000' } });
-r = validateOrder({ ...base, items: one });
+r = validateOrder({ ...base, payRef: '', proof: '', items: one });
 assert.ok(r.errors.proof && r.errors.payRef, 'pay-first: screenshot + reference required');
 r = validateOrder({ ...base, items: one, payRef: '1012 345 678 901', proof: 'data:image/png;base64,iVBORw0KGgo=' });
 assert.deepEqual(r.errors, {}, 'pay-first: valid proof accepted'); assert.equal(r.order.payRef, '1012345678901');
 applySettings({ ...defaultSettings(), payment: { gcashNumber: '0917' }, requirePayment: false });
 assert.deepEqual(validateOrder({ ...base, items: one }).errors, {}, 'owner can switch pay-first off');
+applySettings(defaultSettings());
+assert.ok(validateOrder({ ...base, proof: '', items: one }).errors.proof, 'default: payment required (GCash/GoTyme set)');
 applySettings(defaultSettings());
 
 // payment proof

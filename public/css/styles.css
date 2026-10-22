@@ -986,3 +986,19 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .stage, .stage *, .stage__tap { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .stage__tap:focus:not(:focus-visible), .solo__cookie:focus:not(:focus-visible) { outline: none; }
 .stage img { -webkit-user-drag: none; }
+
+/* add-ons on cart lines */
+.addons { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 8px; }
+.addon { position: relative; cursor: pointer; }
+.addon input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.addon span { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 99px; border: 1.5px solid var(--line); background: #fff; font-size: 12.5px; font-weight: 600; line-height: 1.1; white-space: nowrap; }
+.addon span::before { content: '+'; font-weight: 800; color: var(--muted); }
+.addon b { font-weight: 700; color: var(--muted); }
+.addon input:checked + span { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.addon input:checked + span::before { content: '✓'; color: var(--paper); }
+.addon input:checked + span b { color: rgba(243, 236, 224, .75); }
+.addon input:focus-visible + span { outline: 3px solid var(--bow); outline-offset: 2px; }
+.addon__color { min-height: 32px; padding: 4px 28px 4px 10px; border-radius: 99px; border: 1.5px solid var(--ink); background: #fff; font: inherit; font-size: 13.5px; font-weight: 600; }
+.pay-gate { text-align: center; margin-top: 8px; color: var(--err); font-weight: 600; }
+.pay-gate[hidden] { display: none; }
+#placeBtn[disabled] { opacity: .45; }

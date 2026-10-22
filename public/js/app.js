@@ -1,4 +1,4 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -51,27 +51,33 @@ function media(p, { sm = true, cls = 'photo', eager = false } = {}) {
 }
 
 /* ───────────────────────── cart ───────────────────────── */
+const sameLine = (a, b) => a.pid === b.pid && a.vid === b.vid && !!a.wrap === !!b.wrap && (a.ribbon ?? null) === (b.ribbon ?? null);
 const cart = {
   items: store.get('so_cart', []).filter((i) => findVariant(findProduct(i.pid), i.vid) && !findProduct(i.pid).soldOut),
   save() { store.set('so_cart', this.items); updateCount(); },
   add(pid, vid, qty = 1) {
-    const it = this.items.find((i) => i.pid === pid && i.vid === vid);
+    const it = this.items.find((i) => sameLine(i, { pid, vid }));
     if (it) it.qty = Math.min(SHOP.maxQtyPerItem, it.qty + qty);
-    else this.items.push({ pid, vid, qty: Math.min(SHOP.maxQtyPerItem, qty) });
+    else this.items.push({ pid, vid, qty: Math.min(SHOP.maxQtyPerItem, qty), wrap: false, ribbon: null });
     this.save();
   },
-  set(pid, vid, qty) {
-    const it = this.items.find((i) => i.pid === pid && i.vid === vid);
-    if (!it) return;
-    if (qty <= 0) this.items = this.items.filter((i) => i !== it);
-    else it.qty = Math.min(SHOP.maxQtyPerItem, qty);
+  setAt(idx, qty) {
+    const it = this.items[idx]; if (!it) return;
+    if (qty <= 0) this.items.splice(idx, 1); else it.qty = Math.min(SHOP.maxQtyPerItem, qty);
+    this.save();
+  },
+  setAddons(idx, a) { // change add-ons on one line, merging with an identical line if there is one
+    const it = this.items[idx]; if (!it) return;
+    Object.assign(it, a);
+    const twin = this.items.findIndex((x, k) => k !== idx && sameLine(x, it));
+    if (twin >= 0) { this.items[twin].qty = Math.min(SHOP.maxQtyPerItem, this.items[twin].qty + it.qty); this.items.splice(idx, 1); }
     this.save();
   },
   clear() { this.items = []; this.save(); },
   lines() {
-    return this.items.map((i) => {
-      const p = findProduct(i.pid), v = findVariant(p, i.vid);
-      return { ...i, p, v, total: v.price * i.qty };
+    return this.items.map((i, idx) => {
+      const p = findProduct(i.pid), v = findVariant(p, i.vid), unit = v.price + addonPrice(p, v, i);
+      return { ...i, idx, p, v, unit, extra: addonText(p, v, i), total: unit * i.qty };
     });
   },
   count() { return this.items.reduce((s, i) => s + i.qty, 0); },
@@ -191,18 +197,25 @@ function closeDrawer() {
   setTimeout(() => { d.hidden = true; d.classList.remove('closing'); document.body.style.overflow = ''; lastFocus?.focus?.(); }, reduceMotion ? 0 : 280);
 }
 function lineHTML(l) {
+  const colors = SHOP.ribbonColors || [];
+  const wrapOk = canWrap(l.p, l.v), hasRibbon = l.ribbon != null;
   return `<li class="line">
     <a class="line__img" href="#/product/${l.p.id}" tabindex="-1" aria-hidden="true">${media(l.p)}</a>
     <div>
       <a class="line__name" href="#/product/${l.p.id}">${esc(l.p.name)}</a>
-      <div class="line__var">${esc(l.v.label)} · ${peso(l.v.price)}</div>
+      <div class="line__var">${esc(l.v.label)} · ${peso(l.unit)}</div>
       <div class="line__ctrl">
         <div class="qty qty--sm" role="group" aria-label="Quantity for ${esc(l.p.name)}">
-          <button type="button" data-q="-1" data-pid="${l.p.id}" data-vid="${l.v.id}" aria-label="Remove one">−</button>
+          <button type="button" data-q="-1" data-i="${l.idx}" aria-label="Remove one">−</button>
           <output aria-live="polite">${l.qty}</output>
-          <button type="button" data-q="1" data-pid="${l.p.id}" data-vid="${l.v.id}" aria-label="Add one">+</button>
+          <button type="button" data-q="1" data-i="${l.idx}" aria-label="Add one">+</button>
         </div>
-        <button type="button" class="line__rm" data-rm data-pid="${l.p.id}" data-vid="${l.v.id}">Remove</button>
+        <button type="button" class="line__rm" data-rm data-i="${l.idx}">Remove</button>
+      </div>
+      <div class="addons" role="group" aria-label="Add-ons for ${esc(l.p.name)}">
+        ${wrapOk ? `<label class="addon"><input type="checkbox" data-addon="wrap" data-i="${l.idx}" ${l.wrap ? 'checked' : ''}><span>Individually packed <b>+${peso(ADDONS.wrap.price[l.v.id])}</b></span></label>` : ''}
+        <label class="addon"><input type="checkbox" data-addon="ribbon" data-i="${l.idx}" ${hasRibbon ? 'checked' : ''}><span>Ribbon <b>+${peso(ADDONS.ribbon.price)}</b></span></label>
+        ${hasRibbon && colors.length ? `<select class="addon__color" data-addon="color" data-i="${l.idx}" aria-label="Ribbon color">${[''].concat(colors).map((c) => `<option value="${esc(c)}" ${c === (l.ribbon || '') ? 'selected' : ''}>${c ? esc(c) : 'Any color'}</option>`).join('')}</select>` : ''}
       </div>
     </div>
     <div class="line__total">${peso(l.total)}</div>
@@ -224,15 +237,23 @@ function renderDrawer() {
     </div>`;
 }
 
+document.addEventListener('change', (e) => {
+  const a = e.target.closest('[data-addon]'); if (!a) return;
+  const idx = +a.dataset.i, it = cart.items[idx]; if (!it) return;
+  if (a.dataset.addon === 'wrap') cart.setAddons(idx, { wrap: a.checked });
+  else if (a.dataset.addon === 'ribbon') cart.setAddons(idx, { ribbon: a.checked ? '' : null });
+  else cart.setAddons(idx, { ribbon: a.value });
+  refreshCartViews();
+});
 document.addEventListener('click', (e) => {
   const q = e.target.closest('[data-q]');
   if (q) {
-    const it = cart.items.find((i) => i.pid === q.dataset.pid && i.vid === q.dataset.vid);
-    if (it) { cart.set(it.pid, it.vid, it.qty + Number(q.dataset.q)); refreshCartViews(); }
+    const it = cart.items[+q.dataset.i];
+    if (it) { cart.setAt(+q.dataset.i, it.qty + Number(q.dataset.q)); refreshCartViews(); }
     return;
   }
   const rm = e.target.closest('[data-rm]');
-  if (rm) { cart.set(rm.dataset.pid, rm.dataset.vid, 0); refreshCartViews(); return; }
+  if (rm) { cart.setAt(+rm.dataset.i, 0); refreshCartViews(); return; }
   if (e.target.closest('[data-close]')) closeDrawer();
   const sz = e.target.closest('[data-size]');
   if (sz) {
@@ -530,7 +551,7 @@ function feeRow(fulfillment, zone) {
 }
 function receiptHTML({ cta = false, order = null } = {}) {
   const st = order ? { fulfillment: order.fulfillment, zone: order.zone, gift: order.gift } : formState();
-  const lines = order ? order.lines : cart.lines().map((l) => ({ name: l.p.name, variant: l.v.label, qty: l.qty, total: l.total }));
+  const lines = order ? order.lines : cart.lines().map((l) => ({ name: l.p.name, variant: l.v.label + (l.extra ? ' · ' + l.extra : ''), qty: l.qty, total: l.total }));
   const subtotal = order ? order.subtotal : cart.subtotal();
   const date = new Date(order?.createdAt || Date.now()).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
   const [feeLabel, feeVal, feeTotal] = feeRow(st.fulfillment || 'pickup', st.zone);
@@ -649,22 +670,24 @@ function payNowPanel() {
   return `<div class="panel">
           <h2><span class="num">4</span>Pay now</h2>
           <p class="fine">Send <b>${peso(cart.subtotal())}</b>, then add your reference number and screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
-          ${methods.length > 1 ? `<div class="toggle" role="radiogroup" aria-label="Pay with" style="margin-top:12px">${methods.map((m, i) => `<label><input type="radio" name="payment" value="${m}" ${i ? '' : 'checked'}><span><b>${m}</b></span></label>`).join('')}</div>` : `<input type="hidden" name="payment" value="${methods[0]}">`}
-          <div class="paycards" id="coPay">${payDetailsHTML(methods[0])}</div>
+          ${methods.length > 1 ? `<div class="toggle" role="radiogroup" aria-label="Pay with" style="margin-top:12px">${methods.map((m, i) => `<label><input type="radio" name="payment" value="${m}" ${i ? '' : 'checked'}><span><b>${m === 'Bank transfer' ? esc(p.bankName || m) : m}</b></span></label>`).join('')}</div>` : `<input type="hidden" name="payment" value="${methods[0]}">`}
+          <div class="paycards" id="coPay">${payDetailsHTML(methods[0], true)}</div>
           <div class="fields" style="margin-top:14px">
             <div class="field field--full"><label for="f-payRef">Reference number</label><input class="input" id="f-payRef" name="payRef" autocomplete="off" autocapitalize="characters" maxlength="40" placeholder="e.g. 1012 345 678 901"><span class="hint">It's on your GCash / bank receipt after you pay.</span><span class="err" id="e-payRef"></span></div>
             <div class="field field--full"><span class="label-like">Payment screenshot</span>
               <label class="drop" id="coDrop" for="co-file">
-                <input type="file" id="co-file" accept="image/*">
-                <span class="drop__empty"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Choose your payment screenshot</b><i>JPG or PNG</i></span>
+                <input type="file" id="co-file" accept="image/*,application/pdf">
+                <span class="drop__empty"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Upload your payment screenshot</b><i>Photo, screenshot or PDF receipt</i></span>
                 <span class="drop__preview" hidden><img alt="Your screenshot preview"><span><b id="co-fname"></b><i>Tap to change</i></span></span>
               </label><span class="err" id="e-proof"></span></div>
             <div class="field field--full"><label for="f-notes">Notes <span class="opt">(optional)</span></label><textarea class="input" id="f-notes" name="notes" maxlength="500" placeholder="Allergies, special requests…"></textarea></div>
           </div>
           ${placeBtnHTML()}
+          <p class="fine pay-gate" id="payGate">Upload your payment screenshot above to place your order.</p>
         </div>`;
 }
 let coProof = null;
+const gate = () => { const b = $('#placeBtn'), g = $('#payGate'); if (b && g) { b.disabled = !coProof; g.hidden = !!coProof; } };
 function bindPayNow(f) {
   coProof = null;
   const file = $('#co-file'); if (!file) return;
@@ -672,12 +695,16 @@ function bindPayNow(f) {
     const fl = file.files?.[0]; $('#e-proof').textContent = ''; $('#e-proof').closest('.field').classList.remove('has-err');
     if (!fl) return;
     try {
-      coProof = await shrinkImage(fl);
+      const pdf = fl.type === 'application/pdf';
+      if (pdf && fl.size > 3 * 1024 * 1024) throw new Error('big');
+      coProof = pdf ? await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(fl); }) : await shrinkImage(fl);
       const pv = $('#coDrop .drop__preview'); pv.hidden = false; $('#coDrop .drop__empty').hidden = true;
-      $('img', pv).src = coProof; $('#co-fname').textContent = fl.name.length > 28 ? fl.name.slice(0, 25) + '…' : fl.name;
-    } catch { coProof = null; $('#e-proof').textContent = 'We couldn’t open that file. Please choose a JPG or PNG screenshot.'; }
+      $('img', pv).src = pdf ? 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 50"><rect width="40" height="50" rx="5" fill="#331013"/><text x="20" y="31" font-size="11" font-family="Arial" font-weight="700" fill="#fff" text-anchor="middle">PDF</text></svg>') : coProof; $('#co-fname').textContent = fl.name.length > 28 ? fl.name.slice(0, 25) + '…' : fl.name;
+    } catch { coProof = null; $('#e-proof').textContent = 'We couldn’t use that file. Please choose a screenshot, photo or PDF under 3 MB.'; }
+    gate();
   });
-  $$('input[name=payment]', f).forEach((r) => r.addEventListener('change', () => { $('#coPay').innerHTML = payDetailsHTML(r.value); }));
+  $$('input[name=payment]', f).forEach((r) => r.addEventListener('change', () => { $('#coPay').innerHTML = payDetailsHTML(r.value, true); }));
+  gate();
 }
 function bindCheckout() {
   const f = $('#coForm');
@@ -749,7 +776,7 @@ async function submitOrder(d) {
   // the same key is reused if the customer retries, so the server can ignore duplicates
   let key = sstore.get('so_idem', null);
   if (!key) { key = (crypto.randomUUID?.() || String(Date.now()) + Math.random()); sstore.set('so_idem', key); }
-  const payload = { ...d, gift: d.gift === 'on', giftHidePrices: d.giftHidePrices === 'on', items: cart.items.map(({ pid, vid, qty }) => ({ pid, vid, qty })), idempotencyKey: key };
+  const payload = { ...d, gift: d.gift === 'on', giftHidePrices: d.giftHidePrices === 'on', items: cart.items.map(({ pid, vid, qty, wrap, ribbon }) => ({ pid, vid, qty, wrap: !!wrap, ribbon: ribbon ?? null })), idempotencyKey: key };
   try {
     let data;
     if (window.SO_DEMO) { await new Promise((r) => setTimeout(r, 900)); data = demoOrder(payload); }
@@ -788,21 +815,21 @@ async function packBox(name) {
   ov.classList.add('out'); setTimeout(() => ov.remove(), 400);
 }
 function demoOrder(p) {
-  const lines = p.items.map((i) => { const pr = findProduct(i.pid), v = findVariant(pr, i.vid); return { name: pr.name, variant: v.label, qty: i.qty, total: v.price * i.qty }; });
+  const lines = p.items.map((i) => { const pr = findProduct(i.pid), v = findVariant(pr, i.vid), x = addonText(pr, v, i), u = v.price + addonPrice(pr, v, i); return { name: pr.name, variant: v.label + (x ? ' · ' + x : ''), qty: i.qty, total: u * i.qty }; });
   const z = null;
   return { ok: true, order: { orderId: 'SO-261023-DEMO', lines, subtotal: lines.reduce((s, l) => s + l.total, 0), fulfillment: p.fulfillment, date: p.date, time: p.time, name: p.name, phone: p.phone, payment: p.payment, paid: mustPayFirst(), payRef: (p.payRef || '').replace(/\s+/g, '').toUpperCase(), pickupBy: p.pickupBy, zone: z, gift: p.gift ? { to: p.giftTo, hidePrices: p.giftHidePrices } : null, createdAt: Date.now() } };
 }
 
 /* ───────────── how to pay + payment proof upload ───────────── */
-function copyRow(label, value) {
-  return `<div class="copyrow"><span><i>${esc(label)}</i><b>${esc(value)}</b></span><button type="button" class="copybtn" data-copy="${esc(value)}">Copy</button></div>`;
+function copyRow(label, value, copy = !/\*/.test(value)) {
+  return `<div class="copyrow"><span><i>${esc(label)}</i><b>${esc(value)}</b></span>${copy ? `<button type="button" class="copybtn" data-copy="${esc(value.replace(/\s+/g, ''))}">Copy</button>` : ''}</div>`;
 }
-function payDetailsHTML(method) {
+function payDetailsHTML(method, only = false) {
   const p = window.SO_PAYMENT || SHOP.payment || {};
   const qr = p.qr && !window.SO_DEMO ? `<div class="paycard__qr"><img src="/api/qr?v=${esc(p.qr)}" alt="GCash QR code" loading="lazy"><a href="/api/qr?v=${esc(p.qr)}" download="simple-oven-gcash-qr">Save QR</a></div>` : '';
   const gcash = p.gcashNumber ? `<div class="paycard"><h3>GCash</h3>${p.gcashName ? copyRow('Account name', p.gcashName) : ''}${copyRow('GCash number', p.gcashNumber)}${qr}</div>` : '';
   const bank = p.bankAccountNumber ? `<div class="paycard"><h3>${esc(p.bankName || 'Bank transfer')}</h3>${p.bankAccountName ? copyRow('Account name', p.bankAccountName) : ''}${copyRow('Account number', p.bankAccountNumber)}</div>` : '';
-  const first = method === 'Bank transfer' ? bank + gcash : gcash + bank;
+  const first = only ? (method === 'Bank transfer' ? bank : gcash) || gcash + bank : method === 'Bank transfer' ? bank + gcash : gcash + bank;
   return first || `<p class="fine">We'll send our GCash / bank details when we confirm your order.</p>`;
 }
 function proofHTML(pref = {}, compact = false) {
@@ -1234,6 +1261,12 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
+    <h2><span class="num">✿</span>Ribbon colors</h2>
+    <p class="fine">Colors customers can choose for the ₱${ADDONS.ribbon.price} ribbon add-on. Separate with commas. Leave empty and customers get "any color".</p>
+    <input class="input" id="a-ribbons" value="${esc((s.ribbonColors || []).join(', '))}" maxlength="400" placeholder="e.g. Red, Pink, White, Gold">
+  </section>
+
+  <section class="panel adm-sec">
     <h2><span class="num">5</span>Ordering rules</h2>
     <div class="adm-rule"><span>Order at least</span><div class="stepper"><button type="button" data-step="minLeadDays:-1" aria-label="Less">−</button><b id="v-lead">${s.minLeadDays}</b><button type="button" data-step="minLeadDays:1" aria-label="More">+</button></div><span>day${s.minLeadDays === 1 ? '' : 's'} before pick-up</span></div>
     <div class="adm-rule"><label for="a-cut">Last order time the day before</label><input class="input input--sm" type="time" id="a-cut" value="${esc(s.orderCutoff)}"><button type="button" class="linkbtn" id="a-cut-x" ${s.orderCutoff ? '' : 'hidden'}>No limit</button></div>
@@ -1300,6 +1333,7 @@ function bindAdminEvents(box) {
   $('#a-cut-x').onclick = () => { s.orderCutoff = ''; rerender(); };
   $$('[data-pick]', box).forEach((inp) => inp.addEventListener('input', () => { s.pickup[inp.dataset.pick] = inp.value.trim(); if (inp.dataset.pick === 'mapUrl') $('#a-map-test').href = inp.value.trim(); syncSave(); }));
   $('#a-notice').addEventListener('input', (e) => { s.notice = e.target.value; syncSave(); });
+  $('#a-ribbons').addEventListener('input', (e) => { s.ribbonColors = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); syncSave(); });
   $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
   $$('[data-pay]', box).forEach((inp) => inp.addEventListener('input', () => { s.payment[inp.dataset.pay] = inp.value.trim(); syncSave(); }));
   $('#a-qr').addEventListener('change', async (e) => {

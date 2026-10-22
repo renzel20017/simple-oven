@@ -1,7 +1,7 @@
 // Order logic for POST /api/order (used by functions/api/order.js).
 // Re-checks every field, recomputes prices from public/js/products.js, rejects sold-out items
 // and closed dates, emails the order via Resend, then logs it to Google Sheets (optional).
-import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst } from '../public/js/products.js';
+import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst, addonPrice, addonText, canWrap } from '../public/js/products.js';
 import { useSettings, refUsed, rememberRef } from './settings.js';
 import { esc, clean, peso, todayManila, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
 
@@ -60,7 +60,7 @@ export function validateOrder(body) {
   o.paidUpfront = mustPayFirst();
   if (o.paidUpfront) {
     if (!/^[A-Z0-9-]{6,30}$/.test(o.payRef)) errors.payRef = 'Please enter the reference number from your GCash / bank receipt.';
-    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(b.proof || ''));
+    const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(b.proof || ''));
     if (!m) errors.proof = 'Please upload the screenshot of your payment.';
     else if (m[2].length * 3 / 4 > 3 * 1024 * 1024) errors.proof = 'That screenshot is too large. Please choose a smaller one.';
     else o.proof = { mime: m[1], base64: m[2] };
@@ -76,13 +76,18 @@ export function validateOrder(body) {
     const q = Math.floor(Number(it?.qty));
     if (!p || !v || !Number.isFinite(q) || q < 1) continue;
     if (p.soldOut) { soldOut.push(p.name); continue; }
-    const k = p.id + ':' + v.id;
+    const wrap = !!it.wrap && canWrap(p, v);
+    let ribbon = it.ribbon == null || it.ribbon === false ? null : clean(it.ribbon, 30);
+    if (ribbon && SHOP.ribbonColors.length && !SHOP.ribbonColors.includes(ribbon)) ribbon = '';
+    if (ribbon && !SHOP.ribbonColors.length) ribbon = '';
+    const k = JSON.stringify([p.id, v.id, wrap, ribbon]);
     merged.set(k, Math.min(SHOP.maxQtyPerItem, (merged.get(k) || 0) + q));
   }
   const lines = [...merged].map(([k, qty]) => {
-    const [pid, vid] = k.split(':');
-    const p = findProduct(pid), v = findVariant(p, vid);
-    return { pid, vid, name: p.name, variant: v.label, price: v.price, qty, total: v.price * qty };
+    const [pid, vid, wrap, ribbon] = JSON.parse(k);
+    const p = findProduct(pid), v = findVariant(p, vid), a = { wrap, ribbon };
+    const price = v.price + addonPrice(p, v, a), extra = addonText(p, v, a);
+    return { pid, vid, wrap, ribbon, name: p.name, variant: v.label + (extra ? ' · ' + extra : ''), price, qty, total: price * qty };
   });
   if (soldOut.length) errors.items = `Sorry, ${soldOut.join(', ')} just sold out. Please remove it from your cart.`;
   else if (!lines.length) errors.items = 'Your cart is empty.';
