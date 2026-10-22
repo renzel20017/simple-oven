@@ -1099,3 +1099,10 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .bakebox__tag { top: calc(56% + 22px); left: calc(50% + 30px); }
 .bakebox__ribbon i { background: linear-gradient(90deg, #3a0d16 0, #52172a 20%, #5e1d2c 48%, #50172a 75%, #3a0d16 100%); }
 .bakebox__ribbon u { background: linear-gradient(180deg, #3a0d16 0, #4c1522 20%, #571a28 48%, #4a1421 75%, #350c14 100%); }
+
+/* box material: owner's kraft paper photo */
+.bakebox__lid, .bakebox.is-closed .bakebox__lid { background: url('/assets/tex/box-kraft.webp') center / cover, #d2b48c; background-blend-mode: normal; }
+.bakebox__front { background: url('/assets/tex/box-kraft.webp') center 70% / cover, #c9a87e; background-blend-mode: normal; }
+.bakebox__front { box-shadow: inset 0 8px 12px -6px rgba(90, 60, 30, .35), 0 12px 20px -12px rgba(70, 45, 20, .5); }
+.bakebox__front span { color: #4a2e18; text-shadow: 0 1px 0 rgba(255, 248, 235, .5); }
+.bakebox__tray { border-color: transparent; border-image: url('/assets/tex/box-kraft.webp') 40 / 7px stretch; border-bottom: 0; }
