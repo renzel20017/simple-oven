@@ -1075,3 +1075,9 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .adm-peso .input { width: 78px; min-height: 38px; }
 .adm-badge { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; color: var(--ink-2); }
 .adm-badge .input { flex: 1; min-height: 38px; }
+
+/* sold out: the whole card in grey */
+.card--soldout { filter: grayscale(1); }
+.card--soldout .card__media img, .card--soldout .card__media .art, .card--soldout .card__media .collage { filter: grayscale(1) opacity(.55); }
+.card--soldout .card__body { opacity: .7; }
+.pd--soldout .gallery { filter: grayscale(1); opacity: .75; }

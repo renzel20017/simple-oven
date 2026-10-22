@@ -310,7 +310,7 @@ function cardHTML(p, i = 0, wideArg = false) {
   const v0 = p.variants[0];
   const so = p.soldOut;
   const multi = p.variants.length > 1;
-  return `<article class="card rv${wide ? ' card--wide' : ''}" style="--d:${(i % 4) * 80}ms" ${wide ? '' : 'data-tilt'}>
+  return `<article class="card rv${wide ? ' card--wide' : ''}${so ? ' card--soldout' : ''}" style="--d:${(i % 4) * 80}ms" ${wide ? '' : 'data-tilt'}>
     <a class="card__media${so ? ' is-soldout' : ''}" href="#/product/${p.id}" tabindex="-1" aria-hidden="true">${so ? '<span class="card__badge card__badge--out">Sold out</span>' : p.badge ? `<span class="card__badge">${esc(p.badge)}</span>` : ''}${media(p)}</a>
     <div class="card__body">
       <h3 class="card__name"><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
@@ -467,7 +467,7 @@ function viewProduct(id) {
   const others = PRODUCTS.filter((x) => x.id !== p.id && x.category === p.category).slice(0, 4);
   return `<div class="view wrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="#/shop">Shop</a> / <a href="#/shop/${p.category}">${p.category === 'bars' ? 'Revel Bars' : 'Cookies'}</a> / <span aria-current="page">${esc(p.name)}</span></nav>
-    <div class="pd">
+    <div class="pd${p.soldOut ? ' pd--soldout' : ''}">
       <div class="gallery">
         <div class="gallery__main" id="galMain">${gal.length ? `<img id="galImg" src="${img(gal[0])}" alt="${esc(p.name)}" fetchpriority="high">` : media(p, { sm: false })}</div>
         ${gal.length > 1 ? `<div class="gallery__thumbs" role="group" aria-label="More photos">${gal.map((k, i) => `<button type="button" class="${i ? '' : 'is-on'}" data-gal="${k}" aria-label="Show photo ${i + 1}"><img src="${img(k, true)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
