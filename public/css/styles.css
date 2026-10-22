@@ -1035,3 +1035,16 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 
 .receipt__no { margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); text-align: center; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .receipt__no b { display: block; margin-top: 2px; font-size: 20px; letter-spacing: .12em; color: var(--ink); }
+
+/* ═════ closed gift box: real logo, satin ribbon, bow at the crossing ═════ */
+.bakebox__logo { width: 22%; height: auto; mix-blend-mode: multiply; filter: sepia(.35) brightness(.55) contrast(1.1); }
+.bakebox.is-closed .bakebox__logo { position: absolute; left: 9%; bottom: 13%; width: 21%; opacity: .78; font-size: 0; }
+.bakebox__ribbon { --rb: #5a1d22; --rbHi: #8a3a40; --rbLo: #3a1014; }
+.bakebox__ribbon i, .bakebox__ribbon u { position: absolute; background: linear-gradient(90deg, var(--rbLo), var(--rb) 22%, var(--rbHi) 48%, var(--rb) 72%, var(--rbLo)); box-shadow: 0 2px 4px rgba(40, 10, 10, .35); }
+.bakebox__ribbon i { left: 50%; top: 0; bottom: 0; width: 13px; margin-left: -6.5px; }
+.bakebox__ribbon u { left: 0; right: 0; top: 56%; height: 13px; margin-top: -6.5px; background: linear-gradient(180deg, var(--rbLo), var(--rb) 22%, var(--rbHi) 48%, var(--rb) 72%, var(--rbLo)); transform: scaleX(0); transition: transform .45s .15s ease-out; }
+.bakebox.is-tied .bakebox__ribbon u { transform: scaleX(1); }
+.bakebox__ribbon b { left: 50%; top: 56%; width: 86px; margin: -40px 0 0 -43px; color: inherit; filter: drop-shadow(0 3px 3px rgba(40, 10, 10, .4)); }
+.bakebox__ribbon b svg { width: 100%; height: auto; display: block; }
+.bakebox__tag { top: calc(56% - 46px); left: calc(50% + 34px); }
+.bakebox__tag { top: calc(56% + 12px); left: calc(50% + 26px); font-size: 14px; }

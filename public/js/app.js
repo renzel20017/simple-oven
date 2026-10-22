@@ -142,6 +142,21 @@ function boxMood(cookies, bars) {
   if (cookies + bars <= 16) return 'Now we’re talking. Sharing… maybe?';
   return 'That’s a party box! 🎉';
 }
+// satin bow for the tied box (two loops, knot and tails with soft shading)
+const satinBow = `<svg viewBox="0 0 120 96" aria-hidden="true"><defs>
+  <linearGradient id="sbL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a2a30"/><stop offset=".45" stop-color="#5a1d22"/><stop offset=".7" stop-color="#8a3a40"/><stop offset="1" stop-color="#3e1216"/></linearGradient>
+  <linearGradient id="sbR" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a2a30"/><stop offset=".45" stop-color="#5a1d22"/><stop offset=".7" stop-color="#8a3a40"/><stop offset="1" stop-color="#3e1216"/></linearGradient>
+  <linearGradient id="sbT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a161a"/><stop offset=".5" stop-color="#6e2429"/><stop offset="1" stop-color="#3a1014"/></linearGradient>
+  <radialGradient id="sbK" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#8c3c42"/><stop offset="1" stop-color="#3e1216"/></radialGradient></defs>
+  <path d="M56 50 C40 70 30 84 26 94 L38 90 L42 96 C48 82 54 66 60 54Z" fill="url(#sbT)"/>
+  <path d="M64 50 C80 70 92 82 98 92 L86 90 L84 96 C76 82 68 66 60 54Z" fill="url(#sbT)"/>
+  <path d="M58 46 C44 22 14 14 8 30 C2 46 26 60 58 52Z" fill="url(#sbL)"/>
+  <path d="M62 46 C76 22 106 14 112 30 C118 46 94 60 62 52Z" fill="url(#sbR)"/>
+  <path d="M54 46 C40 32 22 26 16 32" fill="none" stroke="#a8545a" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+  <path d="M66 46 C80 32 98 26 104 32" fill="none" stroke="#a8545a" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+  <ellipse cx="60" cy="49" rx="9.5" ry="8" fill="url(#sbK)"/>
+  <path d="M55 45 C58 43 62 43 65 45" fill="none" stroke="#b0606a" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+</svg>`;
 function bakeBoxHTML({ closed = false, tag = '' } = {}) {
   const pieces = boxPieces();
   const shown = pieces.slice(0, 16), extra = pieces.length - shown.length;
@@ -149,12 +164,12 @@ function bakeBoxHTML({ closed = false, tag = '' } = {}) {
   const fresh = lastAddedKey;
   const newIdx = new Set(pieces.map((p, i) => (fresh && p.key === fresh.key && p.k >= p.n - fresh.n ? i : -1)));
   return `<div class="bakebox${closed ? ' is-closed is-tied' : ''}${pieces.length || closed ? '' : ' is-empty'}" aria-label="Your box: ${cookies} cookie${cookies === 1 ? '' : 's'}${bars ? `, ${bars} box${bars === 1 ? '' : 'es'} of revel bars` : ''}">
-    <div class="bakebox__lid"><span class="bakebox__logo">simple<br>oven</span></div>
+    <div class="bakebox__lid"><img class="bakebox__logo" src="/assets/img/logo.png" alt=""></div>
     <div class="bakebox__body">
       <div class="bakebox__tray">${shown.map((p, i) => tokenHTML(p.pid, i, newIdx.has(i))).join('')}${extra > 0 ? `<span class="tok tok--more">+${extra}</span>` : ''}${!pieces.length ? '<span class="bakebox__hint">your cookies go here</span>' : ''}</div>
       <div class="bakebox__front"><span>${esc(tag || boxMood(cookies, bars))}</span></div>
     </div>
-    <div class="bakebox__ribbon" aria-hidden="true"><i></i><b>${bowSVG}</b>${tag ? `<em class="bakebox__tag">${esc(tag)} ♡</em>` : ''}</div>
+    <div class="bakebox__ribbon" aria-hidden="true"><i></i><u></u><b>${satinBow}</b>${tag ? `<em class="bakebox__tag">${esc(tag)} ♡</em>` : ''}</div>
   </div>`;
 }
 
