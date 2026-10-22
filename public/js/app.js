@@ -231,7 +231,7 @@ function renderDrawer() {
   body.innerHTML = `<div class="drawer__box">${bakeBoxHTML()}</div><ul class="lines">${cart.lines().map(lineHTML).join('')}</ul>
     <div class="drawer__foot">
       <div class="sumrow sumrow--big"><span>Subtotal</span><span>${peso(cart.subtotal())}</span></div>
-      <p class="fine">Pick-up at ${esc(SHOP.pickup.place)}, ${esc(SHOP.pickup.city)}. Want it delivered? Send your own rider.</p>
+      <p class="fine">Pick-up is at ${esc(SHOP.pickup.place)}, ${esc(SHOP.pickup.city)}. If you'd like it delivered, you're welcome to send your own rider to collect it.</p>
       <a class="btn btn--block" href="#/checkout" data-close>Checkout <span class="arrow">→</span></a>
       <a class="btn btn--ghost btn--block" href="#/cart" data-close>View full cart</a>
     </div>`;

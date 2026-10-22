@@ -133,7 +133,7 @@ Save the file and redeploy (or push to GitHub). The server uses the same file, s
 | A flavor is sold out | `soldOut: true` on that product | Card shows "Sold out", can't be ordered |
 | Dates you're closed | `closedDates: ['2026-12-25', …]` | Holidays, fully booked days |
 | Days you're always closed | `closedWeekdays: [1]` | `1` = every Monday (0 = Sunday) |
-| Pick-up place & rider note | `pickup: { place, city }` | `place: 'Meshroom'`. Customers pick up, or book their own rider |
+| Pick-up place & rider note | `pickup: { place, city }` | `place: 'Meshroom Cafe'`. Customers pick up, or book their own rider |
 | Earliest order date | `minLeadDays: 1` | `2` = customers can order 2 days ahead at the earliest |
 
 The server reads the same file, so a sold-out flavor or closed date can't be ordered, even by tricking the page.

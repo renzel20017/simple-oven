@@ -38,9 +38,9 @@ export const SHOP = {
 
   // ── Pick-up (we don't deliver; customers can send their own rider) ──
   pickup: {
-    place: 'Meshroom',             // where customers collect their order
+    place: 'Meshroom Cafe',        // where customers collect their order
     city: 'Dagupan City',
-    mapUrl: 'https://www.google.com/maps/search/?api=1&query=Meshroom%20Dagupan%20City', // paste the exact Google Maps pin link in the owner page
+    mapUrl: 'https://www.google.com/maps/search/?api=1&query=Meshroom%20Cafe%20Dagupan%20City', // paste the exact Google Maps pin link in the owner page
   },
 
   // ── Days you DON'T take orders for ──
@@ -224,8 +224,8 @@ export function cleanSettings(raw) {
   if (r.maxAheadDays !== undefined && Number.isFinite(+r.maxAheadDays)) out.maxAheadDays = Math.min(180, Math.max(3, Math.round(+r.maxAheadDays)));
   if (typeof r.orderCutoff === 'string') out.orderCutoff = /^([01]\d|2[0-3]):[0-5]\d$/.test(r.orderCutoff) ? r.orderCutoff : '';
   if (r.pickup && typeof r.pickup === 'object') {
-    out.pickup = { place: str(r.pickup.place, 60) || d.pickup.place, city: str(r.pickup.city, 60) || d.pickup.city, mapUrl: d.pickup.mapUrl };
-    const u = str(r.pickup.mapUrl, 500);
+    out.pickup = { place: (str(r.pickup.place, 60) === 'Meshroom' ? 'Meshroom Cafe' : str(r.pickup.place, 60)) || d.pickup.place, city: str(r.pickup.city, 60) || d.pickup.city, mapUrl: d.pickup.mapUrl };
+    const u = str(r.pickup.mapUrl, 500).replace('query=Meshroom%20Dagupan%20City', 'query=Meshroom%20Cafe%20Dagupan%20City');
     if (/^https:\/\/[^\s"'<>]+$/.test(u)) out.pickup.mapUrl = u;
   }
   if (typeof r.notice === 'string') out.notice = str(r.notice, 200);
