@@ -781,7 +781,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 [data-design="sticker"] .band { background: var(--velvet); color: #fff; }
 
 /* torn paper sheet behind the hero cookie */
-.stage__sheet { position: absolute; inset: 1% 4% 10%; transform: translateZ(-90px) rotate(-5deg); }
+.stage__sheet { position: absolute; inset: -12% -20% -4% -22%; transform: translateZ(-90px) rotate(-3deg); }
 .stage__sheet img { width: 100%; height: 100%; object-fit: contain; }
 /* revel bar cut-out on kraft */
 .band__cut { display: block; width: 100%; max-width: 560px; justify-self: center; }

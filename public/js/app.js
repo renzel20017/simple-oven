@@ -335,7 +335,7 @@ function heroPaper() {
       </div>
       <div class="stage stage--solo" id="stage">
         <div class="stage__inner" id="stageInner" aria-hidden="true">
-          <div class="stage__sheet"><img src="/assets/tex/paper-sheet.webp" alt="" width="1200" height="1200"></div>
+          <div class="stage__sheet"><img src="/assets/tex/paper-stack.webp" alt=""></div>
 ${soloScene()}
         </div>
         <button class="stage__tap" type="button" id="crumbleBtn">tap me ✺</button>
@@ -1078,16 +1078,16 @@ function initEffects() {
           { transform: `translate(calc(-50% + ${dx * .97}px), calc(-50% + ${floor - 10}px)) rotate(${rot}deg)`, offset: .7, easing: 'ease-in' },
           { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${floor}px)) rotate(${rot}deg)`, opacity: 1, offset: .78 },
           { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${floor}px)) rotate(${rot}deg)`, opacity: 0 },
-        ], { duration: 2600 + Math.random() * 900, easing: 'cubic-bezier(.33,0,.67,1)', fill: 'forwards' }).onfinish = () => { c.remove(); live.delete(c); };
+        ], { duration: 1150 + Math.random() * 400, easing: 'cubic-bezier(.33,0,.67,1)', fill: 'forwards' }).onfinish = () => { c.remove(); live.delete(c); };
       }
     };
     const puff = (ox, oy) => { // soft sugar-dust puff + sparkles where you touched
       const p = document.createElement('span'); p.className = 'dust'; p.style.left = ox + 'px'; p.style.top = oy + 'px'; st.appendChild(p);
-      p.animate([{ transform: 'translate(-50%,-50%) scale(.2)', opacity: .9 }, { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 }], { duration: 700, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => p.remove();
+      p.animate([{ transform: 'translate(-50%,-50%) scale(.2)', opacity: .9 }, { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 }], { duration: 450, easing: 'cubic-bezier(.2,.8,.3,1)' }).onfinish = () => p.remove();
       for (let i = 0; i < 10; i++) {
         const k = document.createElement('span'); k.className = 'spark'; k.style.left = ox + 'px'; k.style.top = oy + 'px'; st.appendChild(k);
         const a = (i / 10) * Math.PI * 2 + Math.random() * .5, d = 30 + Math.random() * 50;
-        k.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d}px)) scale(.2)`, opacity: 0 }], { duration: 600 + Math.random() * 300, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => k.remove();
+        k.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d}px)) scale(.2)`, opacity: 0 }], { duration: 380 + Math.random() * 180, easing: 'cubic-bezier(.1,.7,.3,1)' }).onfinish = () => k.remove();
       }
     };
     const bump = (power = 1, buzz = true) => { touchFx.kick(power); if (buzz && navigator.userActivation?.hasBeenActive) try { navigator.vibrate?.(10); } catch {} };
