@@ -644,6 +644,7 @@ function viewCheckout() {
         ${mustPayFirst() ? payNowPanel() : `<div class="panel">
           <h2><span class="num">4</span>Payment & notes</h2>
           ${tipHTML()}
+          <div class="receipt-slot" id="receiptSlot"></div>
           <p class="fine">No payment yet. After you place your order you'll see how to pay, and you can upload your payment screenshot right there.</p>
           <div class="fields">
             <div class="field field--full"><label for="f-pay">How will you pay?</label><select class="input" id="f-pay" name="payment"><option>GCash</option><option>Bank transfer</option></select><span class="err" id="e-payment"></span></div>
@@ -693,6 +694,7 @@ function payNowPanel() {
   return `<div class="panel">
           <h2><span class="num">4</span>Pay now</h2>
           ${tipHTML()}
+          <div class="receipt-slot" id="receiptSlot"></div>
           <p class="fine">Send <b id="payAmt">${peso(cart.subtotal())}</b>, then upload your payment screenshot below. We check every payment before we bake, so orders without a real payment are cancelled.</p>
           ${methods.length > 1 ? `<div class="toggle" role="radiogroup" aria-label="Pay with" style="margin-top:12px">${methods.map((m, i) => `<label><input type="radio" name="payment" value="${m}" ${i ? '' : 'checked'}><span><b>${m === 'Bank transfer' ? esc(p.bankName || m) : m}</b></span></label>`).join('')}</div>` : `<input type="hidden" name="payment" value="${methods[0]}">`}
           <div class="paycards" id="coPay">${payDetailsHTML(methods[0], true)}</div>
@@ -748,6 +750,10 @@ function bindCheckout() {
   $('#f-giftTo').addEventListener('input', () => refreshReceipt());
   sync();
   bindPayNow(f);
+  // phones: show the receipt right after the tip, before the payment details
+  const mq = matchMedia('(max-width: 1000px)'), co = f.closest('.co');
+  const place = () => { const r = $('#receipt'), slot = $('#receiptSlot'); if (!r || !slot) return; if (mq.matches) { if (r.parentElement !== slot) slot.appendChild(r); } else if (r.parentElement !== co) co.appendChild(r); };
+  place(); mq.addEventListener('change', place); cleanups.push(() => mq.removeEventListener('change', place));
   f.addEventListener('change', (e) => { if (e.target.name === 'tipChoice') { const o = $('#f-tipOther'); o.hidden = e.target.value !== 'other'; if (!o.hidden) o.focus(); } });
   $('#f-tipOther')?.addEventListener('input', () => { refreshReceipt(); syncTotals(); });
   $$('.input, input[name=date]', f).forEach((i) => i.addEventListener('input', () => { i.closest('.field')?.classList.remove('has-err'); const e = $('#e-' + (i.name === 'dateOther' ? 'date' : i.name)); if (e) e.textContent = ''; }));

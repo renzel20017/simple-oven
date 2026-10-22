@@ -447,7 +447,7 @@ textarea.input { min-height: 96px; resize: vertical; }
   .strip { grid-template-columns: repeat(3, 1fr); }
   .footer__inner { grid-template-columns: 1fr 1fr 1fr; }
   .footer__brand { grid-column: 1 / -1; }
-  .co .receipt { order: 1; } /* phones: receipt comes after payment, at the end */
+  .co .receipt { order: 1; }
 }
 @media (max-width: 760px) {
   body { font-size: 16px; }
@@ -1028,3 +1028,7 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 /* hero proportions (owner's reference): paper ≈ 1.45× the cookie, cookie sits on the white sheet */
 .stage--solo .solo__cookie { width: 60%; left: 18%; top: 25%; }
 .stage--solo .stage__tap { bottom: -5%; }
+
+.receipt-slot:empty { display: none; }
+.receipt-slot { margin: 6px 0 18px; }
+.receipt-slot .receipt { margin: 0; }
