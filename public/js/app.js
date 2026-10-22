@@ -277,7 +277,7 @@ function cardHTML(p, i = 0, wideArg = false) {
     <div class="card__body">
       <h3 class="card__name"><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
       <p class="card__short">${esc(p.short)}</p>
-      ${wide && p.sampler ? `<ul class="mix" aria-label="Flavors in the Sampler">${SAMPLER_MIX.map((id) => `<li>${cookieSVG(id)}<span>${esc(findProduct(id)?.name || '')}</span></li>`).join('')}</ul>` : ''}
+      ${wide && p.sampler ? `<p class="card__mix">1 of each: ${SAMPLER_MIX.map((id) => esc((findProduct(id)?.name || '').replace(' Chocolate Chip', '').replace(' Cream Cheese', ''))).join(' · ')}</p>` : ''}
       ${multi ? `<div class="sizes" role="radiogroup" aria-label="Box size for ${esc(p.name)}">${p.variants.map((v, k) => `<button type="button" role="radio" aria-checked="${k ? 'false' : 'true'}" class="${k ? '' : 'is-on'}" data-size="${v.id}" ${so ? 'disabled' : ''} data-price="${v.price}" data-label="${esc(v.label)}"><b>${esc(v.label.split(' (')[0].replace('Box of ', ''))} pcs</b><span>${peso(v.price)}</span></button>`).join('')}</div>` : ''}
       <div class="card__foot">
         <span class="price" data-price-out>${peso(v0.price)}${multi ? '' : ' <small>per box</small>'}</span>
@@ -322,7 +322,7 @@ function heroPaper() {
           <div class="stage__sheet"><img src="/assets/tex/paper-sheet.webp" alt="" width="1200" height="1200"></div>
 ${soloScene()}
         </div>
-        <button class="stage__tap" type="button" id="crumbleBtn">tap, drag or pinch ✺</button>
+        <button class="stage__tap" type="button" id="crumbleBtn">tap me ✺</button>
       </div>
     </div>
   </section>`;
@@ -390,34 +390,6 @@ function viewHome() {
         <div><p class="eyebrow rv">The menu</p><h2 class="h2 rv" style="--d:80ms">Pick your <em>favorite</em></h2></div>
       </div>
       <div class="grid grid--menu">${cookies.map((p, i) => cardHTML(p, i)).join('')}${sampler ? cardHTML(sampler, 0, true) : ''}${bars.map((p, i) => cardHTML(p, i + 1)).join('')}</div>
-    </div>
-  </section>
-
-  <section class="section" style="padding-top:0">
-    <div class="wrap feature">
-      <div class="feature__media rv"><img data-parallax src="${img('feature-bb')}" alt="Two halves of a brown butter cookie showing the melted chocolate inside" loading="lazy"><span class="feature__chip">Brown Butter · our bestseller</span></div>
-      <div>
-        <ul>
-          <li class="rv" style="--d:120ms"><b>01</b>Crisp outside, soft and gooey inside.</li>
-          <li class="rv" style="--d:180ms"><b>02</b>Baked to order in small batches, never sitting on a shelf.</li>
-          <li class="rv" style="--d:240ms"><b>03</b>Packed in a box that's ready for gifting.</li>
-        </ul>
-        <a class="btn rv" style="--d:300ms" href="#/product/brown-butter">Try the Brown Butter <span class="arrow">→</span></a>
-      </div>
-    </div>
-  </section>
-
-  <section class="band">
-    <div class="band__grid">
-      <div>
-        <h2 class="h2 rv">Revel <em>bars</em></h2>
-        <p class="lead rv" style="--d:140ms">Chewy oatmeal bars layered with a thick dark chocolate fudge. Cut into squares, sold by the box.</p>
-        <div class="band__prices rv" style="--d:200ms">
-          ${PRODUCTS.filter((p) => p.category === 'bars').map((p) => `<a href="#/product/${p.id}"><b>${esc(p.name.replace(' Revel Bars', '').replace(' Revel Bar', ''))}</b><span>${peso(p.variants[0].price)} per box →</span></a>`).join('')}
-        </div>
-        <a class="btn rv" style="--d:260ms" href="#/shop/bars">Shop revel bars <span class="arrow">→</span></a>
-      </div>
-      <a class="band__cut rv" href="#/product/dark-chocolate-revel" aria-label="See the Dark Chocolate Revel Bars"><img data-spin src="${cut('revel-hero')}" alt="A Dark Chocolate Revel Bar with gooey fudge" width="1000" height="571" loading="lazy"></a>
     </div>
   </section>
 

@@ -956,3 +956,4 @@ textarea.input { min-height: 96px; resize: vertical; }
 .mix li { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.15; }
 .mix svg { flex: 0 0 34px; width: 34px; height: 34px; filter: drop-shadow(0 2px 2px rgba(70, 40, 15, .3)); }
 @media (max-width: 899px) { .mix { grid-template-columns: repeat(4, auto); justify-content: start; gap: 4px; } .mix span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .mix svg { width: 30px; height: 30px; flex-basis: 30px; } }
+.card__mix { font-size: 15px; color: var(--ink-2); line-height: 1.5; margin: 2px 0 8px; }
