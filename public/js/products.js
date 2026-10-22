@@ -165,9 +165,9 @@ export const PRODUCTS = [
     short: 'Oatmeal cookie bar layered with dark chocolate fudge and Biscoff cookie butter.',
     desc: 'Oatmeal cookie bar layered with dark chocolate fudge and Biscoff cookie butter.',
     variants: [{ id: 'box', label: 'Per box', price: 660 }],
-    img: null,
+    img: 'studio-biscoff',
     art: 'biscoff',
-    gallery: [],
+    gallery: ['studio-biscoff', 'biscoff-tray'],
     tone: '#b5773a',
   },
 ];
@@ -212,7 +212,7 @@ export function cleanSettings(raw) {
   if (r.soldOut && typeof r.soldOut === 'object') for (const p of PRODUCTS) if (p.id in r.soldOut) out.soldOut[p.id] = !!r.soldOut[p.id];
   for (const k of ['closedDates', 'openDates']) if (Array.isArray(r[k])) out[k] = [...new Set(r[k].filter(isDs))].sort().slice(0, 400);
   if (Array.isArray(r.closedWeekdays)) out.closedWeekdays = [...new Set(r.closedWeekdays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort();
-  if (Array.isArray(r.pickupTimes)) { const t = [...new Set(r.pickupTimes.map((x) => str(x, 40)).filter(Boolean))].slice(0, 8); if (t.length) out.pickupTimes = t; }
+  if (Array.isArray(r.pickupTimes)) { const t = [...new Set(r.pickupTimes.map((x) => str(x, 40)).filter(Boolean))].slice(0, 20); if (t.length) out.pickupTimes = t; }
   if (r.minLeadDays !== undefined && Number.isFinite(+r.minLeadDays)) out.minLeadDays = Math.min(14, Math.max(0, Math.round(+r.minLeadDays)));
   if (r.maxAheadDays !== undefined && Number.isFinite(+r.maxAheadDays)) out.maxAheadDays = Math.min(180, Math.max(3, Math.round(+r.maxAheadDays)));
   if (typeof r.orderCutoff === 'string') out.orderCutoff = /^([01]\d|2[0-3]):[0-5]\d$/.test(r.orderCutoff) ? r.orderCutoff : '';

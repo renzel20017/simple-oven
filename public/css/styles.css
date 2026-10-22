@@ -17,8 +17,8 @@
   --kraft: #b98a5a;
   --kraft-d: #8e6438;
   --cocoa: #3b2418;
-  --velvet: #8b1d24;
-  --bow: #a3272b;
+  --velvet: #331013;
+  --bow: #5a1d22;
   --line: rgba(23, 18, 14, 0.14);
   --ok: #2f6b3a;
   --err: #a3272b;
@@ -66,7 +66,7 @@ button { cursor: pointer; }
 .h1 { font-size: clamp(46px, 6.4vw, 94px); }
 .h2 { font-size: clamp(34px, 5vw, 64px); }
 .h3 { font-size: clamp(24px, 2.6vw, 32px); }
-.h1 em, .h2 em, .h3 em { font-style: italic; font-weight: 500; color: var(--velvet); }
+.h1 em, .h2 em, .h3 em { font-style: normal; font-weight: inherit; color: inherit; } /* headings: one plain black style */
 .lead { font-size: clamp(17px, 1.5vw, 20px); color: var(--ink-2); max-width: 46ch; }
 
 /* buttons */
@@ -80,7 +80,7 @@ button { cursor: pointer; }
 }
 .btn::after { content: ''; position: absolute; inset: 0; background: var(--velvet); transform: translateY(101%); transition: transform .45s var(--ease); z-index: -1; border-radius: inherit; }
 .btn:hover::after { transform: translateY(0); }
-.btn:hover { border-color: var(--velvet); box-shadow: 0 12px 24px -12px rgba(139, 29, 36, .6); }
+.btn:hover { border-color: var(--velvet); box-shadow: 0 12px 24px -12px rgba(51, 16, 19, .55); }
 .btn:active { transform: scale(.97); }
 .btn--ghost { --bg: transparent; --fg: var(--ink); border-color: var(--ink); }
 .btn--ghost:hover { color: var(--paper); }
@@ -261,7 +261,7 @@ button { cursor: pointer; }
 .note:nth-child(2) { --rot: 1.2deg; }
 .note:nth-child(3) { --rot: -.6deg; }
 .note::before { content: ''; position: absolute; width: 90px; height: 24px; top: -12px; left: 50%; transform: translateX(-50%) rotate(-3deg); background: rgba(225, 208, 172, .9); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-.note__n { font-family: var(--serif); font-style: italic; font-size: 54px; line-height: 1; color: var(--velvet); }
+.note__n { font-family: var(--serif); font-style: normal; font-size: 54px; line-height: 1; color: var(--velvet); }
 .note h3 { font-family: var(--serif); font-size: 24px; margin: 10px 0 8px; }
 .note p { margin: 0; color: var(--ink-2); }
 
@@ -403,7 +403,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 .next { list-style: none; padding: 0; margin: 26px 0 30px; display: grid; gap: 12px; }
 .next li { display: flex; gap: 12px; align-items: baseline; }
-.next li b { font-family: var(--serif); font-style: italic; color: var(--velvet); }
+.next li b { font-family: var(--serif); font-style: normal; color: var(--velvet); }
 
 /* toast */
 .toast { visibility: hidden; position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 140%); z-index: 80; background: var(--ink); color: var(--paper); padding: 12px 14px 12px 18px; border-radius: 999px; display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow-lg); transition: transform .45s var(--ease), visibility .45s; width: max-content; max-width: calc(100% - 32px); font-weight: 500; }
@@ -960,3 +960,12 @@ textarea.input { min-height: 96px; resize: vertical; }
 .mix svg { flex: 0 0 34px; width: 34px; height: 34px; filter: drop-shadow(0 2px 2px rgba(70, 40, 15, .3)); }
 @media (max-width: 899px) { .mix { grid-template-columns: repeat(4, auto); justify-content: start; gap: 4px; } .mix span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .mix svg { width: 30px; height: 30px; flex-basis: 30px; } }
 .card__mix { font-size: 15px; color: var(--ink-2); line-height: 1.5; margin: 2px 0 8px; }
+
+/* iPhone fixes: no sideways shift when picking a date */
+html, body { overflow-x: clip; max-width: 100%; }
+a, button, label, input, select, textarea, .datechip { touch-action: manipulation; } /* no double-tap zoom */
+input[type="date"].input { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; }
+input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
+.datechips { min-width: 0; }
+.datechip input { width: 100%; height: 100%; margin: 0; }
+@supports not (overflow-x: clip) { html, body { overflow-x: hidden; } }

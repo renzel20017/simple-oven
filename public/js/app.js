@@ -1167,7 +1167,7 @@ function renderAdmin(box) {
     <h2><span class="num">3</span>Pick-up times</h2>
     <p class="fine">Customers choose one of these at checkout.</p>
     <div id="admTimes" class="adm-times">${s.pickupTimes.map((t, i) => `<div class="adm-time"><input class="input" data-time="${i}" value="${esc(t)}" maxlength="40" aria-label="Pick-up time ${i + 1}"><button type="button" class="iconbtn" data-deltime="${i}" aria-label="Remove this time" ${s.pickupTimes.length < 2 ? 'disabled' : ''}>✕</button></div>`).join('')}</div>
-    <button type="button" class="btn btn--ghost btn--sm" id="admAddTime" ${s.pickupTimes.length >= 8 ? 'disabled' : ''}>+ Add a time</button>
+    <button type="button" class="btn btn--ghost btn--sm" id="admAddTime" ${s.pickupTimes.length >= 20 ? 'disabled' : ''}>+ Add a time</button>
   </section>
 
   <section class="panel adm-sec">
