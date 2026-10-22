@@ -455,7 +455,7 @@ textarea.input { min-height: 96px; resize: vertical; }
   .nav { flex-wrap: wrap; row-gap: 6px; }
   .nav__links { order: 3; flex: 1 0 100%; margin: 0 -4px; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .nav__links::-webkit-scrollbar { display: none; }
-  .nav__links a { flex: 0 0 auto; padding: 7px 12px; font-size: 15px; background: rgba(23, 18, 14, .05); }
+  .nav__links a { flex: 0 0 auto; padding: 7px 10px; font-size: 14px; background: rgba(23, 18, 14, .05); }
   .nav__logo img { width: 78px; }
   .cartbtn { margin-left: auto; }
   .steps { grid-template-columns: 1fr; }

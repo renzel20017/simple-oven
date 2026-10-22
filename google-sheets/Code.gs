@@ -9,6 +9,24 @@
  * Every order becomes a row in the "Orders" sheet AND an event on its pick-up date and time.
  */
 const SHEET_NAME = 'Orders';
+const SHEET_ID = ''; // optional: the spreadsheet ID, if this script isn't opened from the sheet itself
+const book = () => SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(SHEET_ID);
+
+// Run this once (▶ Run → setup). It asks Google for permission, creates the Orders sheet,
+// makes a random SECRET and shows it in a "Setup" tab so you can copy it into Cloudflare.
+function setup() {
+  const props = PropertiesService.getScriptProperties();
+  let secret = props.getProperty('SECRET');
+  if (!secret) { secret = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''); props.setProperty('SECRET', secret); }
+  sheet();
+  CalendarApp.getDefaultCalendar(); // asks for calendar permission now
+  const ss = book();
+  const st = ss.getSheetByName('Setup') || ss.insertSheet('Setup');
+  st.clear();
+  st.getRange('A1:B3').setValues([['Copy into Cloudflare as', 'Value'], ['SHEETS_SECRET', secret], ['SHEETS_WEBHOOK_URL', 'Deploy → Manage deployments → copy the Web app URL']]);
+  st.getRange('A1:B1').setFontWeight('bold');
+  st.autoResizeColumns(1, 2);
+}
 const HEADERS = ['Order no.', 'Received', 'Status', 'Payment proof', 'Name', 'Mobile', 'Email', 'IG / FB',
   'Delivery / Pick-up', 'Date', 'Time', 'Area', 'Address', 'Items', 'Subtotal (₱)', 'Payment', 'Gift', 'Notes'];
 
@@ -44,7 +62,7 @@ function doPost(e) {
 }
 
 function sheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = book();
   let sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) sh = ss.insertSheet(SHEET_NAME);
   if (sh.getLastRow() === 0) {
