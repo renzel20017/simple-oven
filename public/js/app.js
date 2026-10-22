@@ -1379,29 +1379,46 @@ async function loadShopSettings() {
 function refreshCart() { const before = cart.items.length; cart.items = cart.items.filter((i) => !findProduct(i.pid)?.soldOut); if (cart.items.length !== before) cart.save(); }
 
 
-/* ───────────── cookie care guide ───────────── */
-function viewCare() {
-  const card = (icon, title, body, note = '') => `<div class="care__item rv"><span class="care__ic" aria-hidden="true">${icon}</span><div><h3>${title}</h3><p>${body}</p>${note ? `<p class="care__note">${note}</p>` : ''}</div></div>`;
+/* ───────────── care guide (cookies + revel bars) ───────────── */
+const CARE = {
+  cookies: {
+    label: 'Cookies',
+    storage: [
+      ['Room temperature', 'Up to <b>2 days</b> in an airtight container, away from sunlight and heat.'],
+      ['Fridge', 'Up to <b>5 days</b>, airtight.'],
+      ['Freezer', 'Up to <b>1 month</b>. Wrap each cookie individually, then store in an airtight container or freezer bag.'],
+      ['Red Velvet Cream Cheese', '<b>Refrigerate right away</b> because of the cream cheese filling. Best within 4 to 5 days.'],
+    ],
+    heating: [
+      ['Oven or toaster oven', '<b>160°C</b> for <b>5 to 8 minutes</b>.'],
+      ['Air fryer', '<b>150°C</b> for <b>2 to 3 minutes</b>.'],
+      ['Microwave', '<b>10 to 15 seconds</b>. For Red Velvet, <b>8 to 10 seconds</b>.'],
+      ['From frozen', 'Add <b>3 to 5 minutes</b> in the oven, or thaw at room temperature for 30 minutes first.'],
+    ],
+  },
+  bars: {
+    label: 'Revel Bars',
+    storage: [
+      ['Room temperature', 'Up to <b>2 days</b> in an airtight container, away from sunlight and heat.'],
+      ['Fridge', 'Up to <b>5 days</b>, airtight.'],
+      ['Freezer', 'Up to <b>1 month</b>. Wrap each bar individually, then store in an airtight container or freezer bag.'],
+    ],
+    heating: [
+      ['Oven or toaster oven', '<b>160°C</b> for <b>6 to 8 minutes</b>.'],
+      ['Air fryer', '<b>150°C</b> for <b>3 minutes</b>.'],
+      ['Microwave', '<b>10 to 15 seconds</b>, in short bursts.'],
+      ['From frozen', 'Add <b>3 to 5 minutes</b> in the oven, or thaw at room temperature for 30 minutes first.'],
+    ],
+  },
+};
+function viewCare(which = 'cookies') {
+  const g = CARE[which] ? which : 'cookies', c = CARE[g];
+  const rows = (list) => `<dl class="care__list">${list.map(([t, d]) => `<div class="care__row"><dt>${t}</dt><dd>${d}</dd></div>`).join('')}</dl>`;
   return `<div class="view wrap care">
-    <div class="pagehead"><p class="eyebrow">Cookie care</p><h1 class="h2">Keep them gooey</h1><p class="lead" style="margin-top:12px">How to store your cookies and warm them up so every bite tastes fresh from the oven.</p></div>
-    <section class="panel care__sec">
-      <h2><span class="num">1</span>Storage</h2>
-      <div class="care__grid">
-        ${card('🫙', 'Room temperature', 'Up to <b>2 days</b> in an airtight container, away from sunlight and heat.')}
-        ${card('❄️', 'Fridge', 'Up to <b>5 days</b>, airtight.')}
-        ${card('🧊', 'Freezer', 'Up to <b>1 month</b>. Wrap each cookie individually, then store in an airtight container or freezer bag.')}
-        ${card('❤️', 'Red Velvet Cream Cheese', '<b>Refrigerate right away</b> because of the cream cheese filling. Best within 4 to 5 days.')}
-      </div>
-    </section>
-    <section class="panel care__sec">
-      <h2><span class="num">2</span>Heating</h2>
-      <div class="care__grid">
-        ${card('🔥', 'Oven or toaster oven', '<b>160°C</b> for <b>5 to 8 minutes</b>.')}
-        ${card('🌀', 'Air fryer', '<b>150°C</b> for <b>2 to 3 minutes</b>.')}
-        ${card('⚡', 'Microwave', '<b>10 to 15 seconds</b>.', 'Red Velvet: 8 to 10 seconds.')}
-        ${card('🕒', 'From frozen', 'Add <b>3 to 5 minutes</b> in the oven, or thaw at room temperature for 30 minutes first.')}
-      </div>
-    </section>
+    <div class="pagehead"><p class="eyebrow">Care guide</p><h1 class="h2">Keep them gooey</h1><p class="lead" style="margin-top:12px">How to store and warm up your treats so every bite tastes fresh from the oven.</p>
+      <nav class="chips" aria-label="Choose a treat" style="margin-top:18px">${Object.entries(CARE).map(([k, v]) => `<a class="chip ${k === g ? 'is-on' : ''}" href="#/care/${k}" ${k === g ? 'aria-current="page"' : ''}>${v.label}</a>`).join('')}</nav></div>
+    <section class="panel care__sec"><h2><span class="num">1</span>Storage</h2>${rows(c.storage)}</section>
+    <section class="panel care__sec"><h2><span class="num">2</span>Heating</h2>${rows(c.heating)}</section>
     <div class="hero__cta" style="animation:none;margin-top:8px"><a class="btn" href="#/shop">Order a box <span class="arrow">→</span></a></div>
   </div>`;
 }
@@ -1420,7 +1437,7 @@ function route() {
   switch (a) {
     case '': html = viewHome(); break;
     case 'how': html = viewHome(); scrollTo = '#how'; break;
-    case 'care': html = viewCare(); title = 'Cookie care · Simple Oven'; break;
+    case 'care': html = viewCare(b); title = 'Care guide · Simple Oven'; break;
     case 'shop': html = viewShop(b || 'all'); title = 'Shop · Simple Oven'; break;
     case 'product': html = viewProduct(b); after = () => bindProduct(b); title = `${findProduct(b)?.name || 'Product'} · Simple Oven`; break;
     case 'cart': html = viewCart(); after = renderCart; title = 'Your cart · Simple Oven'; break;
