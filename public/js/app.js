@@ -113,7 +113,7 @@ function flyTo(fromEl, p, done) {
 
 /* ───────────────────────── the cookie box (cart visual) ───────────────────────── */
 const tokenArt = (pid) => (findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // illustrated, so every flavor looks the same style
-const SAMPLER_MIX = ['brown-butter', 'red-velvet', 'birthday-bomb', 'white-choco-oreo'];
+const SAMPLER_MIX = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet'];
 function tokenHTML(pid, i, isNew) {
   const p = findProduct(pid);
   const bar = p?.category === 'bars';
@@ -267,15 +267,17 @@ function refreshCartViews() {
 }
 
 /* ───────────────────────── card ───────────────────────── */
-function cardHTML(p, i = 0) {
+function cardHTML(p, i = 0, wideArg = false) {
+  const wide = wideArg === true; // (Array.map passes the array as 3rd argument)
   const v0 = p.variants[0];
   const so = p.soldOut;
   const multi = p.variants.length > 1;
-  return `<article class="card rv" style="--d:${(i % 4) * 80}ms" data-tilt>
+  return `<article class="card rv${wide ? ' card--wide' : ''}" style="--d:${(i % 4) * 80}ms" ${wide ? '' : 'data-tilt'}>
     <a class="card__media${so ? ' is-soldout' : ''}" href="#/product/${p.id}" tabindex="-1" aria-hidden="true">${so ? '<span class="card__badge card__badge--out">Sold out</span>' : p.badge ? `<span class="card__badge">${esc(p.badge)}</span>` : ''}${media(p)}</a>
     <div class="card__body">
       <h3 class="card__name"><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
       <p class="card__short">${esc(p.short)}</p>
+      ${wide && p.sampler ? `<ul class="mix" aria-label="Flavors in the Sampler">${SAMPLER_MIX.map((id) => `<li>${cookieSVG(id)}<span>${esc(findProduct(id)?.name || '')}</span></li>`).join('')}</ul>` : ''}
       ${multi ? `<div class="sizes" role="radiogroup" aria-label="Box size for ${esc(p.name)}">${p.variants.map((v, k) => `<button type="button" role="radio" aria-checked="${k ? 'false' : 'true'}" class="${k ? '' : 'is-on'}" data-size="${v.id}" ${so ? 'disabled' : ''} data-price="${v.price}" data-label="${esc(v.label)}"><b>${esc(v.label.split(' (')[0].replace('Box of ', ''))} pcs</b><span>${peso(v.price)}</span></button>`).join('')}</div>` : ''}
       <div class="card__foot">
         <span class="price" data-price-out>${peso(v0.price)}${multi ? '' : ' <small>per box</small>'}</span>
@@ -373,7 +375,8 @@ function heroSticker() {
 const HEROES = { paper: heroPaper, night: heroNight, sticker: heroSticker };
 
 function viewHome() {
-  const best = ['brown-butter', 'red-velvet', 'birthday-bomb', 'white-choco-oreo'].map(findProduct);
+  // the whole menu on the landing page: 4 cookies, the Sampler (wide card) and the revel bars
+  const cookies = PRODUCTS.filter((p) => p.category === 'cookies' && !p.sampler), sampler = PRODUCTS.find((p) => p.sampler), bars = PRODUCTS.filter((p) => p.category === 'bars');
   const names = PRODUCTS.map((p) => p.name);
   const tick = [...names, ...names].map((n) => `<span>${esc(n)}</span>`).join('');
   return `<div class="view">
@@ -384,10 +387,9 @@ function viewHome() {
   <section class="section">
     <div class="wrap">
       <div class="section__head">
-        <div><p class="eyebrow rv">The cookie menu</p><h2 class="h2 rv" style="--d:80ms">Pick your <em>favorite</em></h2></div>
-        <a class="btn btn--ghost rv" href="#/shop">See everything <span class="arrow">→</span></a>
+        <div><p class="eyebrow rv">The menu</p><h2 class="h2 rv" style="--d:80ms">Pick your <em>favorite</em></h2></div>
       </div>
-      <div class="grid">${best.map(cardHTML).join('')}</div>
+      <div class="grid grid--menu">${cookies.map((p, i) => cardHTML(p, i)).join('')}${sampler ? cardHTML(sampler, 0, true) : ''}${bars.map((p, i) => cardHTML(p, i + 1)).join('')}</div>
     </div>
   </section>
 
