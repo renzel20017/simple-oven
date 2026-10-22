@@ -570,7 +570,6 @@ function receiptHTML({ cta = false, order = null } = {}) {
     ${cta ? `<a class="btn btn--block" style="margin-top:18px" href="#/checkout">Checkout <span class="arrow">→</span></a>` : ''}
     <p class="receipt__thanks">thank you!</p>
     <p class="receipt__sub" style="margin:0">${esc(SHOP.instagramHandle)}</p>
-    <div class="barcode" aria-hidden="true"></div>
   </aside>`;
 }
 function refreshReceipt() { const r = $('#receipt'); if (r) r.outerHTML = receiptHTML(); if (!cart.items.length && location.hash.startsWith('#/checkout')) route(); }
