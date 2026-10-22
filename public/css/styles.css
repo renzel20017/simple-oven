@@ -1060,3 +1060,16 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .bakebox.is-tied .bakebox__tag { transform: rotate(10deg) scale(1); }
 .bakebox__tag::after { width: 40px; transform: rotate(-163deg); }
 .bakebox.is-closed .bakebox__logo { left: 5%; bottom: 7%; width: 16%; }
+
+/* owner page: prices */
+.adm-prices { display: grid; gap: 8px; }
+.adm-price { padding: 10px 12px; border-radius: var(--r-sm); background: #fff; border: 1px solid var(--line); }
+.adm-price__name { display: block; font-weight: 700; font-size: 15.5px; margin-bottom: 6px; }
+.adm-price__vars { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.adm-price__vars label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.adm-peso { display: inline-flex; align-items: center; gap: 4px; }
+.adm-peso i { font-style: normal; font-weight: 700; color: var(--muted); }
+.adm-peso .input { width: 92px; min-height: 40px; padding: 6px 10px; }
+.adm-price__vars { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.adm-price__vars label { justify-content: space-between; }
+.adm-peso .input { width: 78px; min-height: 38px; }

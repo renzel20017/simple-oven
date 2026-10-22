@@ -1279,6 +1279,18 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
+    <h2><span class="num">₱</span>Prices</h2>
+    <p class="fine">Change a price and press Save. The website, checkout and order emails all use the new price right away.</p>
+    <div class="adm-prices">${PRODUCTS.map((p) => `<div class="adm-price"><span class="adm-price__name">${esc(p.name)}</span><div class="adm-price__vars">${p.variants.map((v) => `<label><span>${esc(v.label.replace(/ \(.*\)/, ''))}</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-price="${p.id}:${v.id}" value="${s.prices[p.id][v.id]}"></span></label>`).join('')}</div></div>`).join('')}
+      <div class="adm-price"><span class="adm-price__name">Add-ons</span><div class="adm-price__vars">
+        <label><span>Individually packed · 4 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap4" value="${s.addonPrices.wrap4}"></span></label>
+        <label><span>Individually packed · 8 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap8" value="${s.addonPrices.wrap8}"></span></label>
+        <label><span>Ribbon (per box)</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="ribbon" value="${s.addonPrices.ribbon}"></span></label>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="panel adm-sec">
     <h2><span class="num">2</span>How customers pay</h2>
     <label class="adm-item adm-item--plain"><span class="adm-item__name">Customers must pay before ordering<i>${s.requirePayment ? 'On: they send the reference no. + screenshot with the order' : 'Off: they pay after you confirm'}</i></span><input type="checkbox" class="sw" id="a-req" ${s.requirePayment ? 'checked' : ''} aria-label="Customers must pay before ordering"></label>
     ${!paymentReady(s.payment) ? '<p class="adm-warn" style="margin-top:10px">Add your GCash or bank details below. Until then, customers pay after you confirm.</p>' : ''}
@@ -1391,6 +1403,8 @@ function bindAdminEvents(box) {
   $('#a-tipon').addEventListener('change', (e) => { s.tips.enabled = e.target.checked; rerender(); });
   $('#a-tips').addEventListener('input', (e) => { const a = e.target.value.split(',').map((x) => Math.round(+x.replace(/[^\d.]/g, ''))).filter((x) => x > 0); if (a.length) s.tips.amounts = a; syncSave(); });
   $('#a-ribbons').addEventListener('input', (e) => { s.ribbonColors = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); syncSave(); });
+  $$('[data-price]', box).forEach((inp) => inp.addEventListener('input', () => { const [pid, vid] = inp.dataset.price.split(':'); const n = Math.round(+inp.value); if (n > 0) s.prices[pid][vid] = n; syncSave(); }));
+  $$('[data-addonprice]', box).forEach((inp) => inp.addEventListener('input', () => { const n = Math.round(+inp.value); if (inp.value !== '' && n >= 0) s.addonPrices[inp.dataset.addonprice] = n; syncSave(); }));
   $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
   $$('[data-pay]', box).forEach((inp) => inp.addEventListener('input', () => { s.payment[inp.dataset.pay] = inp.value.trim(); syncSave(); }));
   $('#a-qr').addEventListener('change', async (e) => {

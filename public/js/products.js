@@ -201,11 +201,18 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
-const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])) }));
+// ── Add-ons (prices in pesos). The server re-checks these too. ──
+export const ADDONS = {
+  wrap: { label: 'Individually packed', price: { '4': 5, '8': 10 } }, // cookies only, per box
+  ribbon: { label: 'Ribbon', price: 10 },                              // per box
+};
+const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
+  prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
+  addonPrices: { wrap4: ADDONS.wrap.price['4'], wrap8: ADDONS.wrap.price['8'], ribbon: ADDONS.ribbon.price } }));
 export function defaultSettings() {
   const d = JSON.parse(JSON.stringify(DEFAULTS));
   return Object.fromEntries(settingsKeys.map((k) => [k, d[k]]));
@@ -239,13 +246,17 @@ export function cleanSettings(raw) {
     out.tips = { enabled: r.tips.enabled !== false, amounts: d.tips.amounts };
     if (Array.isArray(r.tips.amounts)) { const a = [...new Set(r.tips.amounts.map((x) => Math.round(+x)).filter((x) => x > 0 && x <= 5000))].sort((x, y) => x - y).slice(0, 5); if (a.length) out.tips.amounts = a; }
   }
+  const money = (x, lo, hi) => { const n = Math.round(Number(x)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+  if (r.prices && typeof r.prices === 'object') for (const p of PRODUCTS) for (const v of p.variants) { const n = money(r.prices?.[p.id]?.[v.id], 1, 100000); if (n != null) out.prices[p.id][v.id] = n; }
+  if (r.addonPrices && typeof r.addonPrices === 'object') for (const k of ['wrap4', 'wrap8', 'ribbon']) { const n = money(r.addonPrices[k], 0, 10000); if (n != null) out.addonPrices[k] = n; }
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   return out;
 }
 export function applySettings(raw) {
   const s = cleanSettings(raw);
   for (const k of settingsKeys) if (k !== 'soldOut') SHOP[k] = s[k];
-  for (const p of PRODUCTS) p.soldOut = !!s.soldOut[p.id];
+  for (const p of PRODUCTS) { p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; }
+  ADDONS.wrap.price['4'] = s.addonPrices.wrap4; ADDONS.wrap.price['8'] = s.addonPrices.wrap8; ADDONS.ribbon.price = s.addonPrices.ribbon;
   return s;
 }
 export function nextOpenDates(fromDs, count = 6, maxLook = 60) {
@@ -256,11 +267,6 @@ export function nextOpenDates(fromDs, count = 6, maxLook = 60) {
 export const findZone = (id) => SHOP.deliveryZones.find((z) => z.id === id);
 export const zoneText = (z) => (!z ? '' : z.min == null ? 'We\'ll quote you' : `${peso(z.min)}–${peso(z.max)}`);
 
-// ── Add-ons (prices in pesos). The server re-checks these too. ──
-export const ADDONS = {
-  wrap: { label: 'Individually packed', price: { '4': 5, '8': 10 } }, // cookies only, per box
-  ribbon: { label: 'Ribbon', price: 10 },                              // per box
-};
 export const canWrap = (p, v) => !!p && p.category === 'cookies' && ADDONS.wrap.price[v?.id] != null;
 export function addonPrice(p, v, a = {}) {
   let x = 0;

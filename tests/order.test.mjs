@@ -51,6 +51,11 @@ applySettings({ ...defaultSettings(), orderCutoff: '00:00' });
 assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest day');
 assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
 assert.ok(validateOrder({ ...base, social: '', items: one }).errors.social, 'IG/FB required');
+// owner-set prices
+applySettings({ ...defaultSettings(), requirePayment: false, prices: { 'brown-butter': { '4': 400 } }, addonPrices: { ribbon: 15 } });
+r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '4', qty: 1, ribbon: '' }] });
+assert.equal(r.order.lines[0].total, 415, 'owner prices used by server');
+applySettings(defaultSettings());
 // tips
 applySettings({ ...defaultSettings(), requirePayment: false });
 r = validateOrder({ ...base, items: one, tip: 50 }); assert.equal(r.order.tip, 50); assert.equal(r.order.total, 410 + 50, 'tip added to total');
