@@ -691,8 +691,9 @@ textarea.input { min-height: 96px; resize: vertical; }
 .receipt__gift { text-align: center; margin: -8px 0 10px; font-weight: 700; color: var(--velvet); }
 .rline__extra { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); text-align: right; }
 .card__badge--out { background: var(--ink) !important; color: var(--paper) !important; }
-.card__media.is-soldout img, .card__media.is-soldout .art, .card__media.is-soldout .collage { filter: grayscale(.7) opacity(.6); }
-.card__add[disabled], .sizes button[disabled] { opacity: .5; cursor: not-allowed; }
+.card__media.is-soldout img, .card__media.is-soldout .art, .card__media.is-soldout .collage { filter: grayscale(1); }
+.card__add[disabled] { opacity: .5; cursor: not-allowed; }
+.sizes button[disabled] { cursor: not-allowed; }
 
 /* ═════════ how to pay + upload ═════════ */
 .thanks { align-items: start; }
@@ -1077,7 +1078,5 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .adm-badge .input { flex: 1; min-height: 38px; }
 
 /* sold out: the whole card in grey */
-.card--soldout { filter: grayscale(1); }
-.card--soldout .card__media img, .card--soldout .card__media .art, .card--soldout .card__media .collage { filter: grayscale(1) opacity(.55); }
-.card--soldout .card__body { opacity: .7; }
-.pd--soldout .gallery { filter: grayscale(1); opacity: .75; }
+.card--soldout .card__media img, .card--soldout .card__media .art, .card--soldout .card__media .collage { filter: grayscale(1); }
+.pd--soldout .gallery img { filter: grayscale(1); }
