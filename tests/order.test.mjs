@@ -6,7 +6,7 @@ import { PRODUCTS, SHOP, nextOpenDates, addDays, applySettings, defaultSettings,
 
 const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const day = nextOpenDates(addDays(today, 3), 1)[0];
-const base = { name: 'Ana Reyes', phone: '0917 123 4567', fulfillment: 'delivery', zone: 'near', address: '12 Mabini St, Makati City', date: day, time: 'Morning (9am – 12nn)', payment: 'GCash', payRef: '1012345678901', proof: 'data:image/png;base64,iVBORw0KGgo=' };
+const base = { social: '@ana', name: 'Ana Reyes', phone: '0917 123 4567', fulfillment: 'delivery', zone: 'near', address: '12 Mabini St, Makati City', date: day, time: 'Morning (9am – 12nn)', payment: 'GCash', payRef: '1012345678901', proof: 'data:image/png;base64,iVBORw0KGgo=' };
 const one = [{ pid: 'sampler', vid: '4', qty: 1 }];
 
 let r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '8', qty: 2, price: 1 }, { pid: 'biscoff-revel', vid: 'box', qty: 1 }] });
@@ -50,6 +50,7 @@ assert.deepEqual(validateOrder({ ...base, time: '1pm – 3pm', items: one }).err
 applySettings({ ...defaultSettings(), orderCutoff: '00:00' });
 assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest day');
 assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
+assert.ok(validateOrder({ ...base, social: '', items: one }).errors.social, 'IG/FB required');
 // tips
 applySettings({ ...defaultSettings(), requirePayment: false });
 r = validateOrder({ ...base, items: one, tip: 50 }); assert.equal(r.order.tip, 50); assert.equal(r.order.total, 410 + 50, 'tip added to total');

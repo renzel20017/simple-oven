@@ -781,8 +781,9 @@ textarea.input { min-height: 96px; resize: vertical; }
 [data-design="sticker"] .band { background: var(--velvet); color: #fff; }
 
 /* torn paper sheet behind the hero cookie */
-.stage__sheet { position: absolute; inset: -12% -20% -4% -22%; transform: translateZ(-90px) rotate(-3deg); }
-.stage__sheet img { width: 100%; height: 100%; object-fit: contain; }
+.stage__sheet { position: absolute; inset: 0; z-index: 0; pointer-events: none; } /* stays still; only the cookie moves */
+.stage--solo .stage__inner { z-index: 1; }
+.stage__sheet img { width: 100%; height: 100%; object-fit: contain; image-rendering: auto; }
 /* revel bar cut-out on kraft */
 .band__cut { display: block; width: 100%; max-width: 560px; justify-self: center; }
 .band__cut img { width: 100%; height: auto; filter: drop-shadow(0 30px 30px rgba(50, 28, 10, .45)); }
@@ -1023,3 +1024,7 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .tipchip input:checked + span { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .tipchip input:focus-visible + span { outline: 3px solid var(--bow); outline-offset: 2px; }
 .tipother { margin-top: 8px; max-width: 160px; }
+
+/* hero proportions (owner's reference): paper ≈ 1.45× the cookie, cookie sits on the white sheet */
+.stage--solo .solo__cookie { width: 60%; left: 18%; top: 25%; }
+.stage--solo .stage__tap { bottom: -5%; }

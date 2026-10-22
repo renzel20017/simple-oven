@@ -334,8 +334,8 @@ function heroPaper() {
         </div>
       </div>
       <div class="stage stage--solo" id="stage">
+        <div class="stage__sheet" aria-hidden="true"><img src="/assets/tex/paper-note.webp" alt=""></div>
         <div class="stage__inner" id="stageInner" aria-hidden="true">
-          <div class="stage__sheet"><img src="/assets/tex/paper-stack.webp" alt=""></div>
 ${soloScene()}
         </div>
         <button class="stage__tap" type="button" id="crumbleBtn">tap me ✺</button>
@@ -599,7 +599,7 @@ function viewCheckout() {
             <div class="field field--full"><label for="f-name">Full name</label><input class="input" id="f-name" name="name" autocomplete="name" required maxlength="80" value="${v('name')}"><span class="err" id="e-name"></span></div>
             <div class="field"><label for="f-phone">Mobile number</label><input class="input" id="f-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="09XX XXX XXXX" required maxlength="20" value="${v('phone')}"><span class="err" id="e-phone"></span></div>
             <div class="field"><label for="f-email">Email <span class="opt">(optional)</span></label><input class="input" id="f-email" name="email" type="email" autocomplete="email" maxlength="120" value="${v('email')}"><span class="err" id="e-email"></span></div>
-            <div class="field field--full"><label for="f-social">Instagram or Facebook name <span class="opt">(optional, so we can message you)</span></label><input class="input" id="f-social" name="social" maxlength="80" placeholder="@yourname" value="${v('social')}"></div>
+            <div class="field field--full"><label for="f-social">Instagram or Facebook name</label><input class="input" id="f-social" name="social" required maxlength="80" placeholder="@yourname" value="${v('social')}"><span class="hint">So we can message you about your order.</span><span class="err" id="e-social"></span></div>
           </div>
         </div>
 
@@ -776,6 +776,7 @@ function validate(d) {
   const digits = (d.phone || '').replace(/\D/g, '');
   if (digits.length < 10 || digits.length > 13) e.phone = 'Please enter a valid mobile number (e.g. 0917 123 4567).';
   if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) e.email = 'That email doesn’t look right.';
+  if (!d.social || d.social.trim().length < 2) e.social = 'Please enter your Instagram or Facebook name.';
   if (!d.date) e.date = 'Please pick a date.';
   else if (d.date < minDate()) e.date = 'Orders need at least a day’s notice. Please pick a later date.';
   else if (d.date > maxDate()) e.date = 'That’s too far ahead. Please pick an earlier date.';

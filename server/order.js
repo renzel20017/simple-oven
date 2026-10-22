@@ -45,6 +45,7 @@ export function validateOrder(body) {
   const digits = o.phone.replace(/\D/g, '');
   if (digits.length < 10 || digits.length > 13) errors.phone = 'Please enter a valid mobile number.';
   if (o.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(o.email)) errors.email = 'Please check your email address.';
+  if (o.social.length < 2) errors.social = 'Please enter your Instagram or Facebook name.';
   o.address = ''; o.zone = '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date)) errors.date = 'Please choose a pick-up date.';
   else if (o.date < earliestDate()) errors.date = 'Orders need to be placed at least a day before pick-up. Please choose a later date.';
