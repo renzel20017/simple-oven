@@ -113,7 +113,7 @@ export function ownerEmail(o) {
       ${o.gift ? `<p style="margin:0 0 6px;display:inline-block;background:#8b1d24;color:#fff;border-radius:99px;padding:4px 10px;font-size:13px;font-weight:700">🎁 GIFT ORDER${o.giftHidePrices ? ' · hide prices' : ''}</p>` : ''}
       <table style="width:100%;border-collapse:collapse;font-size:15px;margin-top:12px">
         ${o.lines.map((l) => `<tr><td style="padding:8px 0;border-bottom:1px dashed #d8ccb8"><b>${l.qty} ×</b> ${esc(l.name)}<br><span style="color:#7b6a5c;font-size:13px">${esc(l.variant)} · ${peso(l.price)}</span></td><td style="padding:8px 0;border-bottom:1px dashed #d8ccb8;text-align:right;font-weight:700">${peso(l.total)}</td></tr>`).join('')}
-        ${o.tip ? `<tr><td style="padding:12px 0 0">Subtotal</td><td style="padding:12px 0 0;text-align:right">${peso(o.subtotal)}</td></tr><tr><td style="padding:4px 0 0">Tip for the baker 💛</td><td style="padding:4px 0 0;text-align:right">${peso(o.tip)}</td></tr>` : ''}
+        ${o.tip ? `<tr><td style="padding:12px 0 0">Subtotal</td><td style="padding:12px 0 0;text-align:right">${peso(o.subtotal)}</td></tr><tr><td style="padding:4px 0 0">Tip</td><td style="padding:4px 0 0;text-align:right">${peso(o.tip)}</td></tr>` : ''}
         <tr><td style="padding:12px 0 0;font-size:18px;font-weight:800">Total</td><td style="padding:12px 0 0;text-align:right;font-size:18px;font-weight:800">${peso(o.total)}</td></tr>
         ${o.fulfillment === 'delivery' ? `<tr><td style="color:#7b6a5c;font-size:13px;padding-top:4px">Rider fee (${esc(o.zoneInfo?.label || '')})</td><td style="color:#7b6a5c;font-size:13px;padding-top:4px;text-align:right">${esc(feeText(o.zoneInfo))}</td></tr>` : ''}
       </table>

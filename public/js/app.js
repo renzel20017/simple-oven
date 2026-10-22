@@ -564,7 +564,7 @@ function receiptHTML({ cta = false, order = null } = {}) {
     ${lines.map((l) => `<div class="rline"><span>${l.qty} × ${esc(l.name)}<br><small style="color:var(--muted)">${esc(l.variant)}</small></span><span>${peso(l.total)}</span></div>`).join('')}
     <hr>
     <div class="rline"><span>Subtotal</span><span>${peso(subtotal)}</span></div>
-    ${tip ? `<div class="rline"><span>Tip for the baker 💛</span><span>${peso(tip)}</span></div>` : ''}
+    ${tip ? `<div class="rline"><span>Tip</span><span>${peso(tip)}</span></div>` : ''}
     <div class="rline"><span>${feeLabel}</span><span>${feeVal}</span></div>
     <div class="rline rline--total"><span>Total</span><span>${peso(total)}${feeTotal ? `<small class="rline__extra">${feeTotal}</small>` : ''}</span></div>
     ${cta ? `<a class="btn btn--block" style="margin-top:18px" href="#/checkout">Checkout <span class="arrow">→</span></a>` : ''}
@@ -663,11 +663,11 @@ function viewCheckout() {
 }
 
 
-/* tip for the baker (optional) */
+/* tip (optional) */
 function tipHTML() {
   const t = SHOP.tips; if (!t?.enabled) return '';
   return `<div class="tipbox">
-    <span class="label-like" id="tipLbl">Add a tip for the baker? <span class="opt">(optional)</span></span>
+    <span class="label-like" id="tipLbl">Tip <span class="opt">(optional)</span></span>
     <div class="tipchips" role="radiogroup" aria-labelledby="tipLbl">
       <label class="tipchip"><input type="radio" name="tipChoice" value="0" checked><span>No tip</span></label>
       ${t.amounts.map((a) => `<label class="tipchip"><input type="radio" name="tipChoice" value="${a}"><span>${peso(a)}</span></label>`).join('')}
