@@ -1059,3 +1059,4 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .bakebox__tag { top: calc(56% + 6px); left: calc(50% + 32px); font-size: 13px; padding: 4px 10px 3px 16px; }
 .bakebox.is-tied .bakebox__tag { transform: rotate(10deg) scale(1); }
 .bakebox__tag::after { width: 40px; transform: rotate(-163deg); }
+.bakebox.is-closed .bakebox__logo { left: 5%; bottom: 7%; width: 16%; }
