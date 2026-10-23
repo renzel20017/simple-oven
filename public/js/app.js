@@ -118,7 +118,8 @@ function flyTo(fromEl, p, done) {
 
 
 /* ───────────────────────── the cookie box (cart visual) ───────────────────────── */
-const tokenArt = (pid) => (findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // illustrated, so every flavor looks the same style
+const TOKEN_PHOTOS = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet', 'dark-chocolate-revel', 'biscoff-revel'];
+const tokenArt = (pid) => (TOKEN_PHOTOS.includes(pid) ? `<img src="${cut('tok-' + pid)}" alt="" loading="lazy" decoding="async">` : findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // real photos of the cookies
 const SAMPLER_MIX = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet'];
 function tokenHTML(pid, i, isNew) {
   const p = findProduct(pid);
@@ -428,7 +429,7 @@ function viewHome() {
 
   <section class="section" id="how">
     <div class="wrap">
-      <div class="section__head"><div><p class="eyebrow rv">Ordering is easy</p><h2 class="h2 rv" style="--d:80ms">Three <em>simple</em> steps</h2></div></div>
+      <div class="section__head"><div><h2 class="eyebrow rv">How to order</h2></div></div>
       <div class="steps">
         <div class="note rv"><div class="note__n">1</div><h3>Fill your box</h3><p>Pick your flavors and box size. Mix cookies and revel bars in one order.</p></div>
         <div class="note rv" style="--d:100ms"><div class="note__n">2</div><h3>Tell us when</h3><p>Pick a date to collect at ${esc(SHOP.pickup.place)}, or send your own rider. No account needed.</p></div>
