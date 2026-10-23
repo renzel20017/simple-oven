@@ -201,7 +201,7 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
@@ -210,7 +210,11 @@ export const ADDONS = {
   wrap: { label: 'Individually packed', price: { '4': 5, '8': 10 } }, // cookies only, per box
   ribbon: { label: 'Ribbon', price: 10 },                              // per box
 };
-const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
+// built-in products (the owner can rename them); products the owner adds are stored in settings.extraProducts
+export const BASE_PRODUCTS = PRODUCTS.slice();
+const BASE_TEXT = Object.fromEntries(PRODUCTS.map((p) => [p.id, { name: p.name, short: p.short, desc: p.desc }]));
+export const isCustomId = (id) => /^c-[a-z0-9]{4,12}$/.test(String(id));
+const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
   prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
   badges: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.badge || ''])),
   addonPrices: { wrap4: ADDONS.wrap.price['4'], wrap8: ADDONS.wrap.price['8'], ribbon: ADDONS.ribbon.price } }));
@@ -224,7 +228,7 @@ const str = (x, max) => String(x ?? '').replace(/[\u0000-\u001F\u007F]/g, '').tr
 export function cleanSettings(raw) {
   const d = defaultSettings(), r = raw && typeof raw === 'object' ? raw : {};
   const out = { ...d };
-  if (r.soldOut && typeof r.soldOut === 'object') for (const p of PRODUCTS) if (p.id in r.soldOut) out.soldOut[p.id] = !!r.soldOut[p.id];
+  if (r.soldOut && typeof r.soldOut === 'object') for (const p of BASE_PRODUCTS) if (p.id in r.soldOut) out.soldOut[p.id] = !!r.soldOut[p.id];
   for (const k of ['closedDates', 'openDates']) if (Array.isArray(r[k])) out[k] = [...new Set(r[k].filter(isDs))].sort().slice(0, 400);
   if (Array.isArray(r.closedWeekdays)) out.closedWeekdays = [...new Set(r.closedWeekdays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort();
   if (Array.isArray(r.pickupTimes)) { const t = [...new Set(r.pickupTimes.map((x) => str(x, 40)).filter(Boolean))].slice(0, 20); if (t.length) out.pickupTimes = t; }
@@ -248,16 +252,38 @@ export function cleanSettings(raw) {
     if (Array.isArray(r.tips.amounts)) { const a = [...new Set(r.tips.amounts.map((x) => Math.round(+x)).filter((x) => x > 0 && x <= 5000))].sort((x, y) => x - y).slice(0, 5); if (a.length) out.tips.amounts = a; }
   }
   const money = (x, lo, hi) => { const n = Math.round(Number(x)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
-  if (r.prices && typeof r.prices === 'object') for (const p of PRODUCTS) for (const v of p.variants) { const n = money(r.prices?.[p.id]?.[v.id], 1, 100000); if (n != null) out.prices[p.id][v.id] = n; }
+  if (r.prices && typeof r.prices === 'object') for (const p of BASE_PRODUCTS) for (const v of p.variants) { const n = money(r.prices?.[p.id]?.[v.id], 1, 100000); if (n != null) out.prices[p.id][v.id] = n; }
   if (r.addonPrices && typeof r.addonPrices === 'object') for (const k of ['wrap4', 'wrap8', 'ribbon']) { const n = money(r.addonPrices[k], 0, 10000); if (n != null) out.addonPrices[k] = n; }
-  if (r.badges && typeof r.badges === 'object') for (const p of PRODUCTS) if (typeof r.badges[p.id] === 'string') out.badges[p.id] = str(r.badges[p.id], 24);
+  if (r.badges && typeof r.badges === 'object') for (const p of BASE_PRODUCTS) if (typeof r.badges[p.id] === 'string') out.badges[p.id] = str(r.badges[p.id], 24);
+  for (const k of ['names', 'descs']) if (r[k] && typeof r[k] === 'object') { out[k] = {}; for (const p of BASE_PRODUCTS) { const v = str(r[k][p.id], k === 'names' ? 60 : 300); if (v) out[k][p.id] = v; } }
+  if (Array.isArray(r.extraProducts)) {
+    const seen = new Set();
+    out.extraProducts = r.extraProducts.slice(0, 30).map((x) => {
+      if (!x || typeof x !== 'object' || !isCustomId(x.id) || seen.has(x.id)) return null; seen.add(x.id);
+      const name = str(x.name, 60); const price4 = money(x.price4, 1, 100000); if (!name || price4 == null) return null;
+      return { id: x.id, name, category: x.category === 'bars' ? 'bars' : 'cookies', desc: str(x.desc, 300), price4, price8: money(x.price8, 1, 100000),
+        badge: str(x.badge, 24), soldOut: !!x.soldOut, photo: /^\d{10,16}$/.test(String(x.photo || '')) ? String(x.photo) : '' };
+    }).filter(Boolean);
+  }
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   return out;
 }
 export function applySettings(raw) {
   const s = cleanSettings(raw);
   for (const k of settingsKeys) if (k !== 'soldOut') SHOP[k] = s[k];
-  for (const p of PRODUCTS) { p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; p.badge = s.badges[p.id] || null; }
+  for (const p of BASE_PRODUCTS) {
+    p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; p.badge = s.badges[p.id] || null;
+    const t = BASE_TEXT[p.id]; p.name = s.names[p.id] || t.name; if (s.descs[p.id]) { p.short = p.desc = s.descs[p.id]; } else { p.short = t.short; p.desc = t.desc; }
+  }
+  PRODUCTS.length = 0; PRODUCTS.push(...BASE_PRODUCTS);
+  // owner-added products go in their category, before the Sampler / after the other bars
+  for (const x of s.extraProducts) {
+    const cp = { id: x.id, name: x.name, category: x.category, custom: true, soldOut: x.soldOut, badge: x.badge || null, short: x.desc, desc: x.desc,
+      variants: x.price8 ? [{ id: '4', label: 'Box of 4', price: x.price4 }, { id: '8', label: 'Box of 8', price: x.price8 }] : [{ id: 'box', label: 'Per box', price: x.price4 }],
+      img: null, photo: x.photo ? `/api/pimg?id=${x.id}&v=${x.photo}` : null, art: x.category === 'bars' ? 'biscoff' : 'butter', gallery: [], tone: '#b47a3e' };
+    const at = x.category === 'cookies' ? PRODUCTS.findIndex((p) => p.sampler) : PRODUCTS.length;
+    PRODUCTS.splice(at < 0 ? PRODUCTS.length : at, 0, cp);
+  }
   ADDONS.wrap.price['4'] = s.addonPrices.wrap4; ADDONS.wrap.price['8'] = s.addonPrices.wrap8; ADDONS.ribbon.price = s.addonPrices.ribbon;
   return s;
 }

@@ -1,5 +1,6 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText, cleanTip } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText, cleanTip, BASE_PRODUCTS } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
+try { const c = JSON.parse(localStorage.getItem('so_settings') || 'null'); if (c && !window.SO_DEMO) applySettings(c); } catch {}
 
 /* ───────────────────────── helpers ───────────────────────── */
 const $ = (s, el = document) => el.querySelector(s);
@@ -46,6 +47,7 @@ function artSVG(kind) {
 
 function media(p, { sm = true, cls = 'photo', eager = false } = {}) {
   if (p.sampler && !p.img) return `<div class="collage"><img src="${cut('brownbutter-stack')}" alt="" loading="lazy"><img src="${cut('redvelvet-stack')}" alt="" loading="lazy"></div>`;
+  if (p.photo) return `<img class="${cls}" src="${esc(p.photo)}" alt="${esc(p.name)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
   if (p.img) return `<img class="${cls}" src="${img(p.img, sm)}" alt="${esc(p.name)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
   return `<div class="art" role="img" aria-label="${esc(p.name)} illustration">${artSVG(p.art)}<span class="art__note">Photo soon</span></div>`;
 }
@@ -119,7 +121,8 @@ function flyTo(fromEl, p, done) {
 
 /* ───────────────────────── the cookie box (cart visual) ───────────────────────── */
 const TOKEN_PHOTOS = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet', 'dark-chocolate-revel', 'biscoff-revel'];
-const tokenArt = (pid) => (TOKEN_PHOTOS.includes(pid) ? `<img src="${cut('tok-' + pid)}" alt="" loading="lazy" decoding="async">` : findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // real photos of the cookies
+const tokenArt = (pid) => { const p = findProduct(pid); return p?.photo ? `<img class="tok__photo" src="${esc(p.photo)}" alt="" loading="lazy">` : tokenArt0(pid); };
+const tokenArt0 = (pid) => (TOKEN_PHOTOS.includes(pid) ? `<img src="${cut('tok-' + pid)}" alt="" loading="lazy" decoding="async">` : findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // real photos of the cookies
 const SAMPLER_MIX = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet'];
 function tokenHTML(pid, i, isNew) {
   const p = findProduct(pid);
@@ -1193,7 +1196,7 @@ function initEffects() {
    Lets the owner change what's available, pick-up days/times and ordering rules from her phone.
    Saved on Cloudflare (KV) through /api/admin, protected by the ADMIN_PASSWORD secret. */
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const adm = { pw: sstore.get('so_admin', ''), s: null, saved: '', storage: true, busy: false };
+const adm = { pw: sstore.get('so_admin', ''), s: null, saved: '', storage: true, busy: false, pimgs: {} };
 const demoSettings = () => { try { return JSON.parse(sessionStorage.getItem('so_demo_settings')) || null; } catch { return null; } };
 async function adminCall(action, extra = {}) {
   if (window.SO_DEMO) { // preview page: no server, keep changes in this tab only
@@ -1206,7 +1209,7 @@ async function adminCall(action, extra = {}) {
 }
 const draftEarliest = (s, now = manilaNow()) => { let d = addDays(now.date, s.minLeadDays); if (s.orderCutoff && now.time >= s.orderCutoff) d = addDays(d, 1); return d; };
 const draftClosed = (s, d) => s.closedDates.includes(d) || (s.closedWeekdays.includes(weekdayOf(d)) && !s.openDates.includes(d));
-const dirty = () => adm.s && (!!adm.qrImage || JSON.stringify(cleanSettings(adm.s)) !== adm.saved);
+const dirty = () => adm.s && (!!adm.qrImage || Object.keys(adm.pimgs).length > 0 || JSON.stringify(adm.s.extraProducts) !== JSON.stringify(cleanSettings(adm.s).extraProducts) || JSON.stringify(cleanSettings(adm.s)) !== adm.saved);
 
 function viewAdmin() {
   return `<div class="view wrap admin"><div class="pagehead pagehead--tight"><h1 class="eyebrow">Owner page</h1></div><div id="adm"></div></div>`;
@@ -1272,7 +1275,7 @@ function renderAdmin(box) {
   <section class="panel adm-sec">
     <h2><span class="num">1</span>What's available</h2>
     <p class="fine">Switch off anything you can't bake right now. Customers will see “Sold out” and can't order it.</p>
-    <div class="adm-list">${PRODUCTS.map((p) => `<label class="adm-item">
+    <div class="adm-list">${BASE_PRODUCTS.map((p) => `<label class="adm-item">
       <span class="adm-item__img">${p.img ? `<img src="${img(p.img, true)}" alt="">` : artSVG(p.art)}</span>
       <span class="adm-item__name">${esc(p.name)}<i>${s.soldOut[p.id] ? 'Sold out' : 'Available'}</i></span>
       <input type="checkbox" class="sw" data-avail="${p.id}" ${s.soldOut[p.id] ? '' : 'checked'} aria-label="${esc(p.name)} available">
@@ -1280,16 +1283,39 @@ function renderAdmin(box) {
   </section>
 
   <section class="panel adm-sec">
-    <h2><span class="num">₱</span>Prices &amp; labels</h2>
-    <p class="fine">Change a price or the little label on each card (like New, Hot or Popular), then press Save. Leave the label empty for none.</p>
+    <h2><span class="num">₱</span>Products: names, prices &amp; labels</h2>
+    <p class="fine">Change a name, description, price or the little label on each card (like New, Hot or Popular), then press Save. Leave the label empty for none.</p>
     <datalist id="badgeIdeas"><option value="New"><option value="Hot"><option value="Popular"><option value="Bestseller"><option value="Fan favorite"><option value="Limited"><option value="Back by demand"><option value="Holiday special"></datalist>
-    <div class="adm-prices">${PRODUCTS.map((p) => `<div class="adm-price"><span class="adm-price__name">${esc(p.name)}</span><label class="adm-badge"><span>Label on card</span><input class="input input--sm" list="badgeIdeas" maxlength="24" data-badge="${p.id}" value="${esc(s.badges[p.id] || '')}" placeholder="e.g. New, Hot (empty = none)"></label><div class="adm-price__vars">${p.variants.map((v) => `<label><span>${esc(v.label.replace(/ \(.*\)/, ''))}</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-price="${p.id}:${v.id}" value="${s.prices[p.id][v.id]}"></span></label>`).join('')}</div></div>`).join('')}
+    <div class="adm-prices">${BASE_PRODUCTS.map((p) => `<div class="adm-price"><label class="adm-badge"><span>Name</span><input class="input input--sm" maxlength="60" data-pname="${p.id}" value="${esc(s.names[p.id] || p.name)}"></label><label class="adm-badge adm-badge--desc"><span>Description</span><textarea class="input input--sm" rows="2" maxlength="300" data-pdesc="${p.id}">${esc(s.descs[p.id] || p.desc)}</textarea></label><label class="adm-badge"><span>Label on card</span><input class="input input--sm" list="badgeIdeas" maxlength="24" data-badge="${p.id}" value="${esc(s.badges[p.id] || '')}" placeholder="e.g. New, Hot (empty = none)"></label><div class="adm-price__vars">${p.variants.map((v) => `<label><span>${esc(v.label.replace(/ \(.*\)/, ''))}</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-price="${p.id}:${v.id}" value="${s.prices[p.id][v.id]}"></span></label>`).join('')}</div></div>`).join('')}
       <div class="adm-price"><span class="adm-price__name">Add-ons</span><div class="adm-price__vars">
         <label><span>Individually packed · 4 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap4" value="${s.addonPrices.wrap4}"></span></label>
         <label><span>Individually packed · 8 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap8" value="${s.addonPrices.wrap8}"></span></label>
         <label><span>Ribbon (per box)</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="ribbon" value="${s.addonPrices.ribbon}"></span></label>
       </div></div>
     </div>
+  </section>
+
+  <section class="panel adm-sec">
+    <h2><span class="num">+</span>Add new products</h2>
+    <p class="fine">Add a new flavor or treat. It appears on the menu, cart and checkout after you press Save.</p>
+    <div class="adm-prices">${s.extraProducts.map((x, i) => `<div class="adm-price adm-new">
+      <div class="adm-new__top">
+        <label class="adm-new__photo" title="Add a photo">${adm.pimgs[x.id] && adm.pimgs[x.id] !== 'remove' ? `<img src="${adm.pimgs[x.id]}" alt="">` : x.photo && adm.pimgs[x.id] !== 'remove' ? `<img src="/api/pimg?id=${x.id}&v=${x.photo}" alt="">` : '<span>+ Photo</span>'}<input type="file" accept="image/*" data-xphoto="${i}" hidden></label>
+        <div class="adm-new__fields">
+          <label class="adm-badge"><span>Name</span><input class="input input--sm" maxlength="60" data-x="${i}:name" value="${esc(x.name)}" placeholder="e.g. Matcha White Choco"></label>
+          <div class="adm-new__row"><label class="adm-badge"><span>Type</span><select class="input input--sm" data-x="${i}:category"><option value="cookies" ${x.category === 'cookies' ? 'selected' : ''}>Cookie</option><option value="bars" ${x.category === 'bars' ? 'selected' : ''}>Bar</option></select></label>
+          <label class="sw-row"><input type="checkbox" class="sw" data-x="${i}:avail" ${x.soldOut ? '' : 'checked'} aria-label="Available"><span>${x.soldOut ? 'Sold out' : 'Available'}</span></label></div>
+        </div>
+      </div>
+      <label class="adm-badge adm-badge--desc"><span>Description</span><textarea class="input input--sm" rows="2" maxlength="300" data-x="${i}:desc" placeholder="What's in it?">${esc(x.desc)}</textarea></label>
+      <div class="adm-price__vars">
+        <label><span>${x.category === 'cookies' ? 'Box of 4' : 'Per box'}</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-x="${i}:price4" value="${x.price4 ?? ''}"></span></label>
+        ${x.category === 'cookies' ? `<label><span>Box of 8 <span class="opt">(optional)</span></span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-x="${i}:price8" value="${x.price8 ?? ''}"></span></label>` : ''}
+      </div>
+      <label class="adm-badge"><span>Label on card</span><input class="input input--sm" list="badgeIdeas" maxlength="24" data-x="${i}:badge" value="${esc(x.badge || '')}" placeholder="e.g. New (empty = none)"></label>
+      <button type="button" class="linkbtn adm-new__del" data-xdel="${i}">Delete this product</button>
+    </div>`).join('')}</div>
+    <button type="button" class="btn btn--ghost btn--sm" id="admAddProduct" style="margin-top:10px" ${s.extraProducts.length >= 30 ? 'disabled' : ''}>+ Add a product</button>
   </section>
 
   <section class="panel adm-sec">
@@ -1406,6 +1432,19 @@ function bindAdminEvents(box) {
   $('#a-tips').addEventListener('input', (e) => { const a = e.target.value.split(',').map((x) => Math.round(+x.replace(/[^\d.]/g, ''))).filter((x) => x > 0); if (a.length) s.tips.amounts = a; syncSave(); });
   $('#a-ribbons').addEventListener('input', (e) => { s.ribbonColors = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); syncSave(); });
   $$('[data-price]', box).forEach((inp) => inp.addEventListener('input', () => { const [pid, vid] = inp.dataset.price.split(':'); const n = Math.round(+inp.value); if (n > 0) s.prices[pid][vid] = n; syncSave(); }));
+  $$('[data-pname]', box).forEach((inp) => inp.addEventListener('input', () => { const id = inp.dataset.pname, v = inp.value.trim(), base = BASE_PRODUCTS.find((p) => p.id === id); if (v && v !== base?.name) s.names[id] = v; else delete s.names[id]; syncSave(); }));
+  $$('[data-pdesc]', box).forEach((inp) => inp.addEventListener('input', () => { const id = inp.dataset.pdesc, v = inp.value.trim(); if (v) s.descs[id] = v; else delete s.descs[id]; syncSave(); }));
+  $('#admAddProduct').onclick = () => { const id = 'c-' + Math.random().toString(36).slice(2, 10); s.extraProducts.push({ id, name: '', category: 'cookies', desc: '', price4: null, price8: null, badge: 'New', soldOut: false, photo: '' }); rerender(); const ins = $$('[data-x$=":name"]', box); ins[ins.length - 1]?.focus(); };
+  $$('[data-x]', box).forEach((inp) => inp.addEventListener(inp.tagName === 'SELECT' || inp.type === 'checkbox' ? 'change' : 'input', () => {
+    const [i, k] = inp.dataset.x.split(':'), x = s.extraProducts[+i]; if (!x) return;
+    if (k === 'avail') { x.soldOut = !inp.checked; inp.nextElementSibling.textContent = inp.checked ? 'Available' : 'Sold out'; }
+    else if (k === 'price4' || k === 'price8') { const n = Math.round(+inp.value); x[k] = inp.value === '' || !(n > 0) ? null : n; }
+    else if (k === 'category') { x.category = inp.value; if (x.category === 'bars') x.price8 = null; rerender(); return; }
+    else x[k] = inp.value;
+    syncSave();
+  }));
+  $$('[data-xphoto]', box).forEach((inp) => inp.addEventListener('change', async () => { const fl = inp.files?.[0], x = s.extraProducts[+inp.dataset.xphoto]; if (!fl || !x) return; try { adm.pimgs[x.id] = await shrinkImage(fl, 1200); rerender(); } catch { toast('Couldn’t open that photo. Please try a JPG or PNG.'); } }));
+  $$('[data-xdel]', box).forEach((b) => b.addEventListener('click', () => { const x = s.extraProducts[+b.dataset.xdel]; if (!x || !confirm(`Delete “${x.name || 'this product'}”? Customers won't see it anymore.`)) return; delete adm.pimgs[x.id]; s.extraProducts.splice(+b.dataset.xdel, 1); rerender(); }));
   $$('[data-badge]', box).forEach((inp) => inp.addEventListener('input', () => { s.badges[inp.dataset.badge] = inp.value.trim(); syncSave(); }));
   $$('[data-addonprice]', box).forEach((inp) => inp.addEventListener('input', () => { const n = Math.round(+inp.value); if (inp.value !== '' && n >= 0) s.addonPrices[inp.dataset.addonprice] = n; syncSave(); }));
   $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
@@ -1419,10 +1458,12 @@ function bindAdminEvents(box) {
     const b = $('#admSave'); adm.busy = true; b.disabled = true; b.textContent = 'Saving…';
     s.pickupTimes = s.pickupTimes.map((t) => t.trim()).filter(Boolean);
     if (s.pickup.mapUrl && !/^https:\/\//.test(s.pickup.mapUrl)) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('The map link should start with https://'); $('#a-map').focus(); return; }
-    let j; try { j = await adminCall('save', { settings: s, ...(adm.qrImage ? { qrImage: adm.qrImage } : {}) }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
+    const bad = s.extraProducts.find((x) => !x.name.trim() || !(x.price4 > 0));
+    if (bad) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('Each new product needs a name and a price.'); return; }
+    let j; try { j = await adminCall('save', { settings: s, productImages: adm.pimgs, ...(adm.qrImage ? { qrImage: adm.qrImage } : {}) }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
     adm.busy = false; b.textContent = 'Save changes';
     if (!j.ok) { if (/password/i.test(j.error || '')) { adm.pw = ''; sstore.set('so_admin', ''); } toast(j.error || 'Couldn’t save. Please try again.'); syncSave(); return; }
-    adm.qrImage = null;
+    adm.qrImage = null; adm.pimgs = {};
     adm.s = cleanSettings(j.settings); adm.saved = JSON.stringify(adm.s); adm.updatedAt = j.settings.updatedAt;
     applySettings(adm.s); store.set('so_settings', adm.s); showNotice();
     rerender(); toast('Saved! Customers see the changes right away.');
