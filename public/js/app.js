@@ -1677,7 +1677,7 @@ const shortDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-P
 // Photo Dump
 function viewPhotos() {
   return `<div class="view wrap dump">
-    <div class="pagehead"><p class="eyebrow">Photo Dump</p><h1 class="h2">Fresh from the oven</h1>
+    <div class="pagehead"><h1 class="eyebrow">Photo Dump</h1>
       <p class="lead" style="margin-top:12px">Little moments from our kitchen: new batches, packed boxes and treats on their way to you.</p></div>
     <div class="dump__wall" id="dumpWall" aria-busy="true">${[0, 1, 2, 3].map((i) => `<figure class="pol pol--ghost" style="--r:${[-3, 2, -1, 3][i]}deg"><span class="pol__img"></span><img class="pol__frame" src="/assets/wall/polaroid.webp" alt=""></figure>`).join('')}</div>
   </div>`;
@@ -1732,7 +1732,7 @@ function noteHTML(r, i) {
 }
 function viewConfessions() {
   return `<div class="view wrap conf">
-    <div class="pagehead conf__head"><div><p class="eyebrow">Sweet Confessions</p><h1 class="h2">Notes from our cookie friends</h1>
+    <div class="pagehead conf__head"><div><h1 class="eyebrow">Sweet Confessions</h1>
       <p class="lead" style="margin-top:12px">Had one of our treats? Tell us everything. We read every single note ♡</p></div>
       <div class="conf__sum" id="confSum"><button type="button" class="btn" id="confWrite">Write a confession</button></div></div>
     <div class="cnotes" id="notesWall" aria-busy="true"><p class="conf__loading">Opening the mailbox…</p></div>

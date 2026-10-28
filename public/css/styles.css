@@ -1363,3 +1363,8 @@ html.pm-lock { overflow: hidden; }
 .adm-conf__txt p { margin: 6px 0 10px; font-family: 'Special Elite', 'Courier New', monospace; font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
 .adm-conf__act { display: flex; align-items: center; gap: 12px; }
 .adm-stars { color: #d6992a; letter-spacing: 1px; } .adm-stars i { font-style: normal; color: rgba(23, 18, 14, .15); }
+/* Photo Dump in typewriter font (same as the confessions) */
+.pol__cap { font-family: 'Special Elite', 'Courier New', monospace; font-weight: 400; font-size: 6.4cqw; line-height: 1.15; }
+.pol__img > span { font-family: 'Special Elite', 'Courier New', monospace; font-size: 6.4cqw; }
+.lb__cap { font-family: 'Special Elite', 'Courier New', monospace; font-weight: 400; font-size: 20px; }
+.dump .pagehead h1.eyebrow, .conf .pagehead h1.eyebrow { margin: 0; font-size: 14px; }
