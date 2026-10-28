@@ -1460,11 +1460,11 @@ function pmRowHTML(p) {
   return `<div class="pm-row${p.hidden ? ' is-hidden' : ''}${p.soldOut && !p.hidden ? ' is-out' : ''}">
     <button type="button" class="pm-row__main" data-pmedit="${p.id}" aria-label="Edit ${esc(p.name)}">
       <span class="pm-thumb">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : artSVG(p.art)}</span>
-      <span class="pm-row__txt"><b>${esc(p.name)}</b><span>${p.variants.map((v) => peso(v.price)).join(' / ')}${p.badge ? ` <i class="pm-tag">${esc(p.badge)}</i>` : ''}</span></span>
+      <span class="pm-row__txt"><b>${esc(p.name)}</b><span>${p.variants.map((v) => peso(v.price)).join(' / ')}${p.badge ? ` <i class="pm-tag">${esc(p.badge)}</i>` : ''}${p.soldOut && !p.hidden ? ' <i class="pm-tag pm-tag--out">Sold out</i>' : ''}</span></span>
       <svg class="pm-row__go" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
     </button>
     ${p.hidden ? `<span class="pm-row__side"><i class="pm-tag pm-tag--hidden">Hidden</i><button type="button" class="linkbtn" data-pmshow="${p.id}">Show again</button></span>`
-      : `<label class="pm-sw"><input type="checkbox" class="sw" data-pmavail="${p.id}" ${p.soldOut ? '' : 'checked'} aria-label="${esc(p.name)} available"><span>${p.soldOut ? 'Sold out' : 'Available'}</span></label>`}
+      : `<label class="pm-sw" title="${p.soldOut ? 'Sold out' : 'Available'}"><input type="checkbox" class="sw" data-pmavail="${p.id}" ${p.soldOut ? '' : 'checked'} aria-label="${esc(p.name)} available"></label>`}
   </div>`;
 }
 function pmRender() {
@@ -1490,7 +1490,6 @@ function bindProducts(box) {
   $('#pmSec').addEventListener('change', (e) => {
     const c = e.target.closest('[data-pmavail]'); if (!c) return;
     pmSetStatus(c.dataset.pmavail, { soldOut: !c.checked });
-    c.nextElementSibling.textContent = c.checked ? 'Available' : 'Sold out';
     if (adm.storage) admSave(box, c.checked ? 'Marked as available ✓' : 'Marked as sold out ✓'); else { pmRender(); syncSave(); }
   });
 }
