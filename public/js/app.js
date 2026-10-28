@@ -1917,7 +1917,7 @@ function viewCare(which = 'cookies') {
   const g = CARE[which] ? which : 'cookies', c = CARE[g];
   const rows = (list) => `<dl class="care__list">${list.map(([t, d]) => `<div class="care__row"><dt>${t}</dt><dd>${d}</dd></div>`).join('')}</dl>`;
   return `<div class="view wrap care">
-    <div class="pagehead"><p class="eyebrow">How to store and warm up</p><h1 class="h2">Keep them gooey</h1><p class="lead" style="margin-top:12px">How to store and warm up your treats so every bite tastes fresh from the oven.</p>
+    <div class="pagehead"><p class="eyebrow">Storage &amp; Reheating</p><h1 class="h2">Keep them gooey</h1><p class="lead" style="margin-top:12px">How to store and warm up your treats so every bite tastes fresh from the oven.</p>
       <nav class="chips" aria-label="Choose a treat" style="margin-top:18px">${Object.entries(CARE).map(([k, v]) => `<a class="chip ${k === g ? 'is-on' : ''}" href="#/care/${k}" ${k === g ? 'aria-current="page"' : ''}>${v.label}</a>`).join('')}</nav></div>
     <section class="panel care__sec"><h2><span class="num">1</span>Storage</h2>${rows(c.storage)}</section>
     <section class="panel care__sec"><h2><span class="num">2</span>Heating</h2>${rows(c.heating)}</section>
@@ -1939,7 +1939,7 @@ function route() {
   switch (a) {
     case '': html = viewHome(); break;
     case 'how': html = viewHome(); scrollTo = '#how'; break;
-    case 'care': html = viewCare(b); title = 'How to store and warm up · Simple Oven'; break;
+    case 'care': html = viewCare(b); title = 'Storage & Reheating · Simple Oven'; break;
     case 'photos': html = viewPhotos(); after = bindPhotos; title = 'Photo Dump · Simple Oven'; break;
     case 'confessions': html = viewConfessions(); after = bindConfessions; title = 'Sweet Confessions · Simple Oven'; break;
     case 'shop': html = viewShop(b || 'all'); title = 'Shop · Simple Oven'; break;

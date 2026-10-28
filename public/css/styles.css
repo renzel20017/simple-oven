@@ -1380,3 +1380,9 @@ html.pm-lock { overflow: hidden; }
 .cnote--form { padding-top: 26%; }
 .cnote__star.is-empty, .cf__stars button .cnote__star { filter: none; }
 .cf__stars button.is-on .cnote__star { filter: drop-shadow(0 1px 0 rgba(120, 85, 20, .25)); }
+/* phone: all 5 tabs visible (wrap onto two centered rows instead of scrolling sideways) */
+@media (max-width: 760px) {
+  .nav__links { flex-wrap: wrap; justify-content: center; overflow: visible; margin: 0; gap: 6px; }
+  .nav__links a { padding: 7px 12px; font-size: 14px; white-space: nowrap; }
+}
+@media (max-width: 359px) { .nav__links a { padding: 6px 9px; font-size: 13px; } }
