@@ -1442,3 +1442,5 @@ body:not(.is-admin) img { -webkit-touch-callout: none; -webkit-user-drag: none; 
 .cnote__photo { filter: drop-shadow(2px 4px 3px rgba(40, 28, 15, .28)) drop-shadow(5px 9px 9px rgba(40, 28, 15, .12)); }
 .dump .pagehead { padding-bottom: 8px; }
 .pol__cap { top: 83%; } .pol__cap--long { font-size: 5.1cqw; line-height: 1.12; }
+/* room for the taped polaroid (its full height incl. tilt) so the text + name never slide under it */
+.cnote__float { width: 33cqw; height: 25cqw; }
