@@ -1,7 +1,7 @@
 // Owner settings (what's available, pick-up days/times, ordering rules).
 // Saved by the owner page (/#/admin) into Cloudflare KV under the binding "SETTINGS".
 // If KV isn't set up yet, everything falls back to the values in public/js/products.js.
-import { cleanSettings, defaultSettings, applySettings } from '../public/js/products.js';
+import { cleanSettings, defaultSettings, applySettings, BASE_PRODUCTS } from '../public/js/products.js';
 import { json, readJson, rateLimiter, originAllowed } from './lib.js';
 
 const KEY = 'settings';
@@ -63,15 +63,19 @@ export async function handleAdmin(request, env) {
       try { await env.SETTINGS.put(QR_KEY, body.qrImage); } catch { return json(502, { ok: false, error: 'Couldn’t save the QR right now. Please try again.' }); }
       clean.payment.qr = String(Date.now());
     }
-    // product photos for owner-added products (stored one per key: pimg:<id>)
+    // product photos (built-in and owner-added products), stored one per key: pimg:<id>
     const pim = body.productImages && typeof body.productImages === 'object' ? body.productImages : {};
-    for (const x of clean.extraProducts) {
-      const v = pim[x.id];
-      if (v === 'remove') { try { await env.SETTINGS.delete('pimg:' + x.id); } catch {} x.photo = ''; }
+    const targets = [
+      ...BASE_PRODUCTS.map((p) => ({ id: p.id, name: clean.names[p.id] || p.name, set: (v) => { if (v) clean.photos[p.id] = v; else delete clean.photos[p.id]; } })),
+      ...clean.extraProducts.map((x) => ({ id: x.id, name: x.name, set: (v) => { x.photo = v; } })),
+    ];
+    for (const t of targets) {
+      const v = pim[t.id];
+      if (v === 'remove') { try { await env.SETTINGS.delete('pimg:' + t.id); } catch {} t.set(''); }
       else if (typeof v === 'string' && v) {
-        if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v) || v.length > 2.5 * 1024 * 1024) return json(422, { ok: false, error: `The photo for ${x.name} is too large. Please use a smaller photo.` });
-        try { await env.SETTINGS.put('pimg:' + x.id, v); } catch { return json(502, { ok: false, error: 'Couldn’t save the photo right now. Please try again.' }); }
-        x.photo = String(Date.now());
+        if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v) || v.length > 2.5 * 1024 * 1024) return json(422, { ok: false, error: `The photo for ${t.name} is too large. Please use a smaller photo.` });
+        try { await env.SETTINGS.put('pimg:' + t.id, v); } catch { return json(502, { ok: false, error: 'Couldn’t save the photo right now. Please try again.' }); }
+        t.set(String(Date.now()));
       }
     }
     // clean up photos of products that were deleted
@@ -104,10 +108,10 @@ export async function rememberRef(env, ref, orderId) {
   try { await env.SETTINGS.put('ref:' + ref, orderId, { expirationTtl: 60 * 60 * 24 * 120 }); } catch (e) { console.warn('[ref] not saved', e); }
 }
 
-// GET /api/pimg?id=c-xxxx → photo of an owner-added product
+// GET /api/pimg?id=<product id> → the owner's uploaded photo for that product
 export async function handlePimg(request, env) {
   const id = new URL(request.url).searchParams.get('id') || '';
-  if (!env.SETTINGS || !/^c-[a-z0-9]{4,12}$/.test(id)) return new Response('Not found', { status: 404 });
+  if (!env.SETTINGS || !/^[a-z0-9-]{2,40}$/.test(id)) return new Response('Not found', { status: 404 });
   const v = await env.SETTINGS.get('pimg:' + id).catch(() => null);
   const m = v && /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(v);
   if (!m) return new Response('Not found', { status: 404 });

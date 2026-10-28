@@ -201,7 +201,7 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
@@ -212,9 +212,9 @@ export const ADDONS = {
 };
 // built-in products (the owner can rename them); products the owner adds are stored in settings.extraProducts
 export const BASE_PRODUCTS = PRODUCTS.slice();
-const BASE_TEXT = Object.fromEntries(PRODUCTS.map((p) => [p.id, { name: p.name, short: p.short, desc: p.desc }]));
+export const BASE_TEXT = Object.fromEntries(PRODUCTS.map((p) => [p.id, { name: p.name, short: p.short, desc: p.desc }]));
 export const isCustomId = (id) => /^c-[a-z0-9]{4,12}$/.test(String(id));
-const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
+const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], hidden: {}, photos: {}, order: [], soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
   prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
   badges: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.badge || ''])),
   addonPrices: { wrap4: ADDONS.wrap.price['4'], wrap8: ADDONS.wrap.price['8'], ribbon: ADDONS.ribbon.price } }));
@@ -262,10 +262,24 @@ export function cleanSettings(raw) {
       if (!x || typeof x !== 'object' || !isCustomId(x.id) || seen.has(x.id)) return null; seen.add(x.id);
       const name = str(x.name, 60); const price4 = money(x.price4, 1, 100000); if (!name || price4 == null) return null;
       return { id: x.id, name, category: x.category === 'bars' ? 'bars' : 'cookies', desc: str(x.desc, 300), price4, price8: money(x.price8, 1, 100000),
-        badge: str(x.badge, 24), soldOut: !!x.soldOut, photo: /^\d{10,16}$/.test(String(x.photo || '')) ? String(x.photo) : '' };
+        badge: str(x.badge, 24), soldOut: !!x.soldOut, hidden: !!x.hidden, photo: /^\d{10,16}$/.test(String(x.photo || '')) ? String(x.photo) : '' };
     }).filter(Boolean);
   }
+  const ver = (v) => (/^\d{10,16}$/.test(String(v || '')) ? String(v) : '');
+  if (r.hidden && typeof r.hidden === 'object') for (const p of BASE_PRODUCTS) if (r.hidden[p.id]) out.hidden[p.id] = true;
+  if (r.photos && typeof r.photos === 'object') for (const p of BASE_PRODUCTS) if (ver(r.photos[p.id])) out.photos[p.id] = ver(r.photos[p.id]);
+  if (Array.isArray(r.order)) out.order = [...new Set(r.order.map(String).filter((id) => /^[a-z0-9-]{1,40}$/.test(id)))].slice(0, 80);
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
+  return out;
+}
+// menu order: the owner's saved order, with anything not in it kept in its usual place
+// (new cookies go before the Sampler, new bars at the end)
+export function productOrder(s) {
+  const ids = BASE_PRODUCTS.map((p) => p.id);
+  for (const x of s.extraProducts || []) { const at = x.category === 'cookies' ? BASE_PRODUCTS.findIndex((p) => p.sampler) : -1; const j = at < 0 ? ids.length : ids.indexOf(BASE_PRODUCTS[at].id); ids.splice(j, 0, x.id); }
+  const out = (s.order || []).filter((id) => ids.includes(id));
+  if (!out.length) return ids;
+  ids.forEach((id, i) => { if (out.includes(id)) return; const prev = ids.slice(0, i).reverse().find((x) => out.includes(x)); out.splice(prev ? out.indexOf(prev) + 1 : 0, 0, id); });
   return out;
 }
 export function applySettings(raw) {
@@ -274,16 +288,18 @@ export function applySettings(raw) {
   for (const p of BASE_PRODUCTS) {
     p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; p.badge = s.badges[p.id] || null;
     const t = BASE_TEXT[p.id]; p.name = s.names[p.id] || t.name; if (s.descs[p.id]) { p.short = p.desc = s.descs[p.id]; } else { p.short = t.short; p.desc = t.desc; }
+    p.hidden = !!s.hidden[p.id];
+    p.photo = s.photos[p.id] ? `/api/pimg?id=${p.id}&v=${s.photos[p.id]}` : null; // owner's own photo replaces the built-in one
   }
-  PRODUCTS.length = 0; PRODUCTS.push(...BASE_PRODUCTS);
-  // owner-added products go in their category, before the Sampler / after the other bars
+  const all = Object.fromEntries(BASE_PRODUCTS.map((p) => [p.id, p]));
   for (const x of s.extraProducts) {
     const cp = { id: x.id, name: x.name, category: x.category, custom: true, soldOut: x.soldOut, badge: x.badge || null, short: x.desc, desc: x.desc,
       variants: x.price8 ? [{ id: '4', label: 'Box of 4', price: x.price4 }, { id: '8', label: 'Box of 8', price: x.price8 }] : [{ id: 'box', label: 'Per box', price: x.price4 }],
-      img: null, photo: x.photo ? `/api/pimg?id=${x.id}&v=${x.photo}` : null, art: x.category === 'bars' ? 'biscoff' : 'butter', gallery: [], tone: '#b47a3e' };
-    const at = x.category === 'cookies' ? PRODUCTS.findIndex((p) => p.sampler) : PRODUCTS.length;
-    PRODUCTS.splice(at < 0 ? PRODUCTS.length : at, 0, cp);
+      hidden: x.hidden, img: null, photo: x.photo ? `/api/pimg?id=${x.id}&v=${x.photo}` : null, art: x.category === 'bars' ? 'biscoff' : 'butter', gallery: [], tone: '#b47a3e' };
+    all[x.id] = cp;
   }
+  // menu order (owner can move products up/down); hidden products are left off the menu entirely
+  PRODUCTS.length = 0; PRODUCTS.push(...productOrder(s).map((id) => all[id]).filter((p) => p && !p.hidden));
   ADDONS.wrap.price['4'] = s.addonPrices.wrap4; ADDONS.wrap.price['8'] = s.addonPrices.wrap8; ADDONS.ribbon.price = s.addonPrices.ribbon;
   return s;
 }

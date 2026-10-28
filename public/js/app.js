@@ -1,4 +1,4 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText, cleanTip, BASE_PRODUCTS } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText, cleanTip, BASE_PRODUCTS, BASE_TEXT, productOrder } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
 try { const c = JSON.parse(localStorage.getItem('so_settings') || 'null'); if (c && !window.SO_DEMO) applySettings(c); } catch {}
 
@@ -121,7 +121,7 @@ function flyTo(fromEl, p, done) {
 
 /* ───────────────────────── the cookie box (cart visual) ───────────────────────── */
 const TOKEN_PHOTOS = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet', 'dark-chocolate-revel', 'biscoff-revel'];
-const tokenArt = (pid) => { const p = findProduct(pid); return p?.photo ? `<img class="tok__photo" src="${esc(p.photo)}" alt="" loading="lazy">` : tokenArt0(pid); };
+const tokenArt = (pid) => { const p = findProduct(pid); return p?.photo && !TOKEN_PHOTOS.includes(pid) ? `<img class="tok__photo" src="${esc(p.photo)}" alt="" loading="lazy">` : tokenArt0(pid); };
 const tokenArt0 = (pid) => (TOKEN_PHOTOS.includes(pid) ? `<img src="${cut('tok-' + pid)}" alt="" loading="lazy" decoding="async">` : findProduct(pid)?.category === 'bars' ? barSVG(pid) : cookieSVG(pid)); // real photos of the cookies
 const SAMPLER_MIX = ['brown-butter', 'white-choco-oreo', 'birthday-bomb', 'red-velvet'];
 function tokenHTML(pid, i, isNew) {
@@ -366,7 +366,7 @@ ${soloScene()}
 }
 
 function heroNight() {
-  const chip = (id, cls, depth) => { const p = findProduct(id); return `<a class="nchip ${cls} float" data-depth="${depth}" href="#/product/${p.id}"><b>${esc(p.name.replace(' Revel Bars', ' Revel'))}</b><span>from ${peso(fromPrice(p))}</span></a>`; };
+  const chip = (id, cls, depth) => { const p = findProduct(id); if (!p) return ''; return `<a class="nchip ${cls} float" data-depth="${depth}" href="#/product/${p.id}"><b>${esc(p.name.replace(' Revel Bars', ' Revel'))}</b><span>from ${peso(fromPrice(p))}</span></a>`; };
   return `<section class="hero hero--night">
     <div class="wrap night__copy">
       <p class="eyebrow">simple oven · home-baked goods</p>
@@ -467,14 +467,15 @@ function viewShop(cat = 'all') {
 function viewProduct(id) {
   const p = findProduct(id);
   if (!p) return viewNotFound();
-  const gal = p.gallery.length ? p.gallery : [];
+  // gallery as {big, sm} pictures; the owner's uploaded photo (if any) replaces the built-in main photo
+  const gal = p.photo ? [{ big: p.photo, sm: p.photo }, ...p.gallery.slice(1).map((k) => ({ big: img(k), sm: img(k, true) }))] : p.gallery.map((k) => ({ big: img(k), sm: img(k, true) }));
   const others = PRODUCTS.filter((x) => x.id !== p.id && x.category === p.category).slice(0, 4);
   return `<div class="view wrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="#/shop">Shop</a> / <a href="#/shop/${p.category}">${p.category === 'bars' ? 'Revel Bars' : 'Cookies'}</a> / <span aria-current="page">${esc(p.name)}</span></nav>
     <div class="pd${p.soldOut ? ' pd--soldout' : ''}">
       <div class="gallery">
-        <div class="gallery__main" id="galMain">${gal.length ? `<img id="galImg" src="${img(gal[0])}" alt="${esc(p.name)}" fetchpriority="high">` : media(p, { sm: false })}</div>
-        ${gal.length > 1 ? `<div class="gallery__thumbs" role="group" aria-label="More photos">${gal.map((k, i) => `<button type="button" class="${i ? '' : 'is-on'}" data-gal="${k}" aria-label="Show photo ${i + 1}"><img src="${img(k, true)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+        <div class="gallery__main" id="galMain">${gal.length ? `<img id="galImg" src="${esc(gal[0].big)}" alt="${esc(p.name)}" fetchpriority="high">` : media(p, { sm: false })}</div>
+        ${gal.length > 1 ? `<div class="gallery__thumbs" role="group" aria-label="More photos">${gal.map((g, i) => `<button type="button" class="${i ? '' : 'is-on'}" data-gal="${esc(g.big)}" aria-label="Show photo ${i + 1}"><img src="${esc(g.sm)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
       </div>
       <div class="pd__info">
         ${p.badge ? `<p class="eyebrow">${esc(p.badge)}</p>` : '<p class="eyebrow">Simple Oven</p>'}
@@ -522,7 +523,7 @@ function bindProduct(id) {
   $$('[data-gal]').forEach((b) => b.addEventListener('click', () => {
     const im = $('#galImg');
     im.style.opacity = 0;
-    setTimeout(() => { im.src = img(b.dataset.gal); im.onload = () => (im.style.opacity = 1); }, 180);
+    setTimeout(() => { im.src = b.dataset.gal; im.onload = () => (im.style.opacity = 1); }, 180);
     $$('[data-gal]').forEach((x) => x.classList.toggle('is-on', x === b));
   }));
   // tilt main image
@@ -1272,50 +1273,15 @@ function renderAdmin(box) {
   ${adm.storage ? '' : `<div class="adm-warn"><b>Saving isn't switched on yet.</b> You can look around, but changes can't be saved until the KV storage is connected in Cloudflare (README step 10).</div>`}
   <div class="adm-top"><span class="fine">${ago ? `Last saved ${esc(ago)}` : 'Using the starting settings'}</span><button type="button" class="linkbtn" id="admOut">Log out</button></div>
 
-  <section class="panel adm-sec">
-    <h2><span class="num">1</span>What's available</h2>
-    <p class="fine">Switch off anything you can't bake right now. Customers will see “Sold out” and can't order it.</p>
-    <div class="adm-list">${BASE_PRODUCTS.map((p) => `<label class="adm-item">
-      <span class="adm-item__img">${p.img ? `<img src="${img(p.img, true)}" alt="">` : artSVG(p.art)}</span>
-      <span class="adm-item__name">${esc(p.name)}<i>${s.soldOut[p.id] ? 'Sold out' : 'Available'}</i></span>
-      <input type="checkbox" class="sw" data-avail="${p.id}" ${s.soldOut[p.id] ? '' : 'checked'} aria-label="${esc(p.name)} available">
-    </label>`).join('')}</div>
-  </section>
+  ${pmSectionHTML()}
 
   <section class="panel adm-sec">
-    <h2><span class="num">₱</span>Products: names, prices &amp; labels</h2>
-    <p class="fine">Change a name, description, price or the little label on each card (like New, Hot or Popular), then press Save. Leave the label empty for none.</p>
-    <datalist id="badgeIdeas"><option value="New"><option value="Hot"><option value="Popular"><option value="Bestseller"><option value="Fan favorite"><option value="Limited"><option value="Back by demand"><option value="Holiday special"></datalist>
-    <div class="adm-prices">${BASE_PRODUCTS.map((p) => `<div class="adm-price"><label class="adm-badge"><span>Name</span><input class="input input--sm" maxlength="60" data-pname="${p.id}" value="${esc(s.names[p.id] || p.name)}"></label><label class="adm-badge adm-badge--desc"><span>Description</span><textarea class="input input--sm" rows="2" maxlength="300" data-pdesc="${p.id}">${esc(s.descs[p.id] || p.desc)}</textarea></label><label class="adm-badge"><span>Label on card</span><input class="input input--sm" list="badgeIdeas" maxlength="24" data-badge="${p.id}" value="${esc(s.badges[p.id] || '')}" placeholder="e.g. New, Hot (empty = none)"></label><div class="adm-price__vars">${p.variants.map((v) => `<label><span>${esc(v.label.replace(/ \(.*\)/, ''))}</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-price="${p.id}:${v.id}" value="${s.prices[p.id][v.id]}"></span></label>`).join('')}</div></div>`).join('')}
-      <div class="adm-price"><span class="adm-price__name">Add-ons</span><div class="adm-price__vars">
-        <label><span>Individually packed · 4 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap4" value="${s.addonPrices.wrap4}"></span></label>
-        <label><span>Individually packed · 8 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap8" value="${s.addonPrices.wrap8}"></span></label>
-        <label><span>Ribbon (per box)</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="ribbon" value="${s.addonPrices.ribbon}"></span></label>
-      </div></div>
+    <h2><span class="num">+</span>Add-on prices</h2>
+    <div class="adm-price__vars adm-addons">
+      <label><span>Individually packed · 4 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap4" value="${s.addonPrices.wrap4}"></span></label>
+      <label><span>Individually packed · 8 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap8" value="${s.addonPrices.wrap8}"></span></label>
+      <label><span>Ribbon (per box)</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="ribbon" value="${s.addonPrices.ribbon}"></span></label>
     </div>
-  </section>
-
-  <section class="panel adm-sec">
-    <h2><span class="num">+</span>Add new products</h2>
-    <p class="fine">Add a new flavor or treat. It appears on the menu, cart and checkout after you press Save.</p>
-    <div class="adm-prices">${s.extraProducts.map((x, i) => `<div class="adm-price adm-new">
-      <div class="adm-new__top">
-        <label class="adm-new__photo" title="Add a photo">${adm.pimgs[x.id] && adm.pimgs[x.id] !== 'remove' ? `<img src="${adm.pimgs[x.id]}" alt="">` : x.photo && adm.pimgs[x.id] !== 'remove' ? `<img src="/api/pimg?id=${x.id}&v=${x.photo}" alt="">` : '<span>+ Photo</span>'}<input type="file" accept="image/*" data-xphoto="${i}" hidden></label>
-        <div class="adm-new__fields">
-          <label class="adm-badge"><span>Name</span><input class="input input--sm" maxlength="60" data-x="${i}:name" value="${esc(x.name)}" placeholder="e.g. Matcha White Choco"></label>
-          <div class="adm-new__row"><label class="adm-badge"><span>Type</span><select class="input input--sm" data-x="${i}:category"><option value="cookies" ${x.category === 'cookies' ? 'selected' : ''}>Cookie</option><option value="bars" ${x.category === 'bars' ? 'selected' : ''}>Bar</option></select></label>
-          <label class="sw-row"><input type="checkbox" class="sw" data-x="${i}:avail" ${x.soldOut ? '' : 'checked'} aria-label="Available"><span>${x.soldOut ? 'Sold out' : 'Available'}</span></label></div>
-        </div>
-      </div>
-      <label class="adm-badge adm-badge--desc"><span>Description</span><textarea class="input input--sm" rows="2" maxlength="300" data-x="${i}:desc" placeholder="What's in it?">${esc(x.desc)}</textarea></label>
-      <div class="adm-price__vars">
-        <label><span>${x.category === 'cookies' ? 'Box of 4' : 'Per box'}</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-x="${i}:price4" value="${x.price4 ?? ''}"></span></label>
-        ${x.category === 'cookies' ? `<label><span>Box of 8 <span class="opt">(optional)</span></span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="1" step="1" data-x="${i}:price8" value="${x.price8 ?? ''}"></span></label>` : ''}
-      </div>
-      <label class="adm-badge"><span>Label on card</span><input class="input input--sm" list="badgeIdeas" maxlength="24" data-x="${i}:badge" value="${esc(x.badge || '')}" placeholder="e.g. New (empty = none)"></label>
-      <button type="button" class="linkbtn adm-new__del" data-xdel="${i}">Delete this product</button>
-    </div>`).join('')}</div>
-    <button type="button" class="btn btn--ghost btn--sm" id="admAddProduct" style="margin-top:10px" ${s.extraProducts.length >= 30 ? 'disabled' : ''}>+ Add a product</button>
   </section>
 
   <section class="panel adm-sec">
@@ -1402,7 +1368,6 @@ function bindAdminEvents(box) {
   const s = adm.s;
   const rerender = () => { const y = scrollY; renderAdmin(box); window.scrollTo(0, y); };
   $('#admOut').onclick = () => { if (dirty() && !confirmLeave()) return; adm.pw = ''; adm.s = null; sstore.set('so_admin', ''); renderLogin(box); };
-  $$('[data-avail]', box).forEach((c) => c.addEventListener('change', () => { s.soldOut[c.dataset.avail] = !c.checked; c.closest('.adm-item').querySelector('i').textContent = c.checked ? 'Available' : 'Sold out'; syncSave(); }));
   $$('[data-wd]', box).forEach((c) => c.addEventListener('change', () => {
     const w = +c.dataset.wd; s.closedWeekdays = c.checked ? [...new Set([...s.closedWeekdays, w])] : s.closedWeekdays.filter((x) => x !== w);
     s.openDates = s.openDates.filter((d) => weekdayOf(d) !== w); // a fresh weekly rule replaces old one-off exceptions for that weekday
@@ -1431,21 +1396,6 @@ function bindAdminEvents(box) {
   $('#a-tipon').addEventListener('change', (e) => { s.tips.enabled = e.target.checked; rerender(); });
   $('#a-tips').addEventListener('input', (e) => { const a = e.target.value.split(',').map((x) => Math.round(+x.replace(/[^\d.]/g, ''))).filter((x) => x > 0); if (a.length) s.tips.amounts = a; syncSave(); });
   $('#a-ribbons').addEventListener('input', (e) => { s.ribbonColors = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); syncSave(); });
-  $$('[data-price]', box).forEach((inp) => inp.addEventListener('input', () => { const [pid, vid] = inp.dataset.price.split(':'); const n = Math.round(+inp.value); if (n > 0) s.prices[pid][vid] = n; syncSave(); }));
-  $$('[data-pname]', box).forEach((inp) => inp.addEventListener('input', () => { const id = inp.dataset.pname, v = inp.value.trim(), base = BASE_PRODUCTS.find((p) => p.id === id); if (v && v !== base?.name) s.names[id] = v; else delete s.names[id]; syncSave(); }));
-  $$('[data-pdesc]', box).forEach((inp) => inp.addEventListener('input', () => { const id = inp.dataset.pdesc, v = inp.value.trim(); if (v) s.descs[id] = v; else delete s.descs[id]; syncSave(); }));
-  $('#admAddProduct').onclick = () => { const id = 'c-' + Math.random().toString(36).slice(2, 10); s.extraProducts.push({ id, name: '', category: 'cookies', desc: '', price4: null, price8: null, badge: 'New', soldOut: false, photo: '' }); rerender(); const ins = $$('[data-x$=":name"]', box); ins[ins.length - 1]?.focus(); };
-  $$('[data-x]', box).forEach((inp) => inp.addEventListener(inp.tagName === 'SELECT' || inp.type === 'checkbox' ? 'change' : 'input', () => {
-    const [i, k] = inp.dataset.x.split(':'), x = s.extraProducts[+i]; if (!x) return;
-    if (k === 'avail') { x.soldOut = !inp.checked; inp.nextElementSibling.textContent = inp.checked ? 'Available' : 'Sold out'; }
-    else if (k === 'price4' || k === 'price8') { const n = Math.round(+inp.value); x[k] = inp.value === '' || !(n > 0) ? null : n; }
-    else if (k === 'category') { x.category = inp.value; if (x.category === 'bars') x.price8 = null; rerender(); return; }
-    else x[k] = inp.value;
-    syncSave();
-  }));
-  $$('[data-xphoto]', box).forEach((inp) => inp.addEventListener('change', async () => { const fl = inp.files?.[0], x = s.extraProducts[+inp.dataset.xphoto]; if (!fl || !x) return; try { adm.pimgs[x.id] = await shrinkImage(fl, 1200); rerender(); } catch { toast('Couldn’t open that photo. Please try a JPG or PNG.'); } }));
-  $$('[data-xdel]', box).forEach((b) => b.addEventListener('click', () => { const x = s.extraProducts[+b.dataset.xdel]; if (!x || !confirm(`Delete “${x.name || 'this product'}”? Customers won't see it anymore.`)) return; delete adm.pimgs[x.id]; s.extraProducts.splice(+b.dataset.xdel, 1); rerender(); }));
-  $$('[data-badge]', box).forEach((inp) => inp.addEventListener('input', () => { s.badges[inp.dataset.badge] = inp.value.trim(); syncSave(); }));
   $$('[data-addonprice]', box).forEach((inp) => inp.addEventListener('input', () => { const n = Math.round(+inp.value); if (inp.value !== '' && n >= 0) s.addonPrices[inp.dataset.addonprice] = n; syncSave(); }));
   $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
   $$('[data-pay]', box).forEach((inp) => inp.addEventListener('input', () => { s.payment[inp.dataset.pay] = inp.value.trim(); syncSave(); }));
@@ -1454,21 +1404,232 @@ function bindAdminEvents(box) {
     try { adm.qrImage = await shrinkImage(fl, 900, 'image/png'); rerender(); } catch { toast('Couldn’t open that image. Please try a PNG or JPG.'); }
   });
   $('#a-qr-x')?.addEventListener('click', () => { adm.qrImage = s.payment.qr ? 'remove' : null; rerender(); });
-  $('#admSave').onclick = async () => {
+  $('#admSave').onclick = () => admSave(box);
+  bindProducts(box);
+}
+async function admSave(box, okMsg = 'Saved! Customers see the changes right away.') {
+  const s = adm.s, rerender = () => { const y = scrollY; renderAdmin(box); window.scrollTo(0, y); };
+  {
     const b = $('#admSave'); adm.busy = true; b.disabled = true; b.textContent = 'Saving…';
     s.pickupTimes = s.pickupTimes.map((t) => t.trim()).filter(Boolean);
-    if (s.pickup.mapUrl && !/^https:\/\//.test(s.pickup.mapUrl)) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('The map link should start with https://'); $('#a-map').focus(); return; }
+    if (s.pickup.mapUrl && !/^https:\/\//.test(s.pickup.mapUrl)) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('The map link should start with https://'); $('#a-map').focus(); return false; }
     const bad = s.extraProducts.find((x) => !x.name.trim() || !(x.price4 > 0));
-    if (bad) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('Each new product needs a name and a price.'); return; }
+    if (bad) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('Each new product needs a name and a price.'); return false; }
     let j; try { j = await adminCall('save', { settings: s, productImages: adm.pimgs, ...(adm.qrImage ? { qrImage: adm.qrImage } : {}) }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
     adm.busy = false; b.textContent = 'Save changes';
-    if (!j.ok) { if (/password/i.test(j.error || '')) { adm.pw = ''; sstore.set('so_admin', ''); } toast(j.error || 'Couldn’t save. Please try again.'); syncSave(); return; }
+    if (!j.ok) { if (/password/i.test(j.error || '')) { adm.pw = ''; sstore.set('so_admin', ''); } toast(j.error || 'Couldn’t save. Please try again.'); syncSave(); return false; }
     adm.qrImage = null; adm.pimgs = {};
     adm.s = cleanSettings(j.settings); adm.saved = JSON.stringify(adm.s); adm.updatedAt = j.settings.updatedAt;
     applySettings(adm.s); store.set('so_settings', adm.s); showNotice();
-    rerender(); toast('Saved! Customers see the changes right away.');
-  };
+    rerender(); toast(okMsg); return true;
+  }
 }
+/* ───── owner page: Products (list + edit sheet) ───── */
+const LABEL_IDEAS = ['New', 'Hot', 'Popular', 'Bestseller', 'Limited', 'Holiday special'];
+const pm = { filter: 'all', q: '', cat: 'all' };
+const pmVariants = (x) => (x.category === 'cookies' && x.price8 ? [{ id: '4', label: 'Box of 4', price: x.price4 }, { id: '8', label: 'Box of 8', price: x.price8 }] : [{ id: 'box', label: x.category === 'cookies' ? 'Box of 4' : 'Per box', price: x.price4 }]);
+function admPhotoSrc(s, id, sm = true) {
+  const up = adm.pimgs[id]; if (up && up !== 'remove') return up;
+  const b = BASE_PRODUCTS.find((p) => p.id === id);
+  if (b) return up !== 'remove' && s.photos[id] ? `/api/pimg?id=${id}&v=${s.photos[id]}` : b.img ? img(b.img, sm) : null;
+  const x = s.extraProducts.find((e) => e.id === id);
+  return x?.photo && up !== 'remove' ? `/api/pimg?id=${id}&v=${x.photo}` : null;
+}
+// every product (built-in + added) as the owner's draft sees it, in menu order
+function admProducts(s) {
+  const base = Object.fromEntries(BASE_PRODUCTS.map((p) => [p.id, p])), extra = Object.fromEntries(s.extraProducts.map((x) => [x.id, x]));
+  return productOrder(s).map((id) => {
+    const b = base[id], x = extra[id];
+    if (b) return { id, base: true, sampler: !!b.sampler, category: b.category, art: b.art, name: s.names[id] || BASE_TEXT[id].name, desc: s.descs[id] || BASE_TEXT[id].desc,
+      variants: b.variants.map((v) => ({ id: v.id, label: v.label, price: s.prices[id][v.id] })), badge: s.badges[id] || '', soldOut: !!s.soldOut[id], hidden: !!s.hidden[id], photo: admPhotoSrc(s, id), ownPhoto: !!s.photos[id] };
+    if (x) return { id, base: false, category: x.category, art: x.category === 'bars' ? 'biscoff' : 'butter', name: x.name, desc: x.desc, variants: pmVariants(x), badge: x.badge || '', soldOut: !!x.soldOut, hidden: !!x.hidden, photo: admPhotoSrc(s, id), ownPhoto: !!x.photo, x };
+    return null;
+  }).filter(Boolean);
+}
+const pmSectionHTML = () => `<section class="panel adm-sec pm" id="pmSec">
+    <div class="pm-head"><h2><span class="num">1</span>Products</h2><button type="button" class="btn btn--sm" id="pmAdd">+ Add product</button></div>
+    <p class="fine">Tap a product to change its photo, name, price or description. Use the switch when something is sold out.</p>
+    <div class="pm-stats" id="pmStats" role="group" aria-label="Show"></div>
+    <div class="pm-tools">
+      <label class="pm-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input class="input" id="pmQ" type="search" placeholder="Find a product" value="${esc(pm.q)}" aria-label="Find a product"></label>
+      <select class="input" id="pmCat" aria-label="Type"><option value="all">All types</option><option value="cookies" ${pm.cat === 'cookies' ? 'selected' : ''}>Cookies</option><option value="bars" ${pm.cat === 'bars' ? 'selected' : ''}>Revel Bars</option></select>
+    </div>
+    <div id="pmList" class="pm-list"></div>
+  </section>`;
+function pmRowHTML(p) {
+  return `<div class="pm-row${p.hidden ? ' is-hidden' : ''}${p.soldOut && !p.hidden ? ' is-out' : ''}">
+    <button type="button" class="pm-row__main" data-pmedit="${p.id}" aria-label="Edit ${esc(p.name)}">
+      <span class="pm-thumb">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : artSVG(p.art)}</span>
+      <span class="pm-row__txt"><b>${esc(p.name)}</b><span>${p.variants.map((v) => peso(v.price)).join(' / ')}${p.badge ? ` <i class="pm-tag">${esc(p.badge)}</i>` : ''}</span></span>
+      <svg class="pm-row__go" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+    ${p.hidden ? `<span class="pm-row__side"><i class="pm-tag pm-tag--hidden">Hidden</i><button type="button" class="linkbtn" data-pmshow="${p.id}">Show again</button></span>`
+      : `<label class="pm-sw"><input type="checkbox" class="sw" data-pmavail="${p.id}" ${p.soldOut ? '' : 'checked'} aria-label="${esc(p.name)} available"><span>${p.soldOut ? 'Sold out' : 'Available'}</span></label>`}
+  </div>`;
+}
+function pmRender() {
+  const all = admProducts(adm.s), q = pm.q.trim().toLowerCase();
+  const n = { all: all.length, soldout: all.filter((p) => p.soldOut && !p.hidden).length, hidden: all.filter((p) => p.hidden).length };
+  $('#pmStats').innerHTML = [['all', 'All products'], ['soldout', 'Sold out'], ['hidden', 'Hidden']].map(([k, l]) => `<button type="button" class="pm-stat pm-stat--${k}${pm.filter === k ? ' is-on' : ''}" data-pmf="${k}" aria-pressed="${pm.filter === k}"><b>${n[k]}</b><span>${l}</span></button>`).join('');
+  const list = all.filter((p) => (pm.filter === 'all' || (pm.filter === 'soldout' ? p.soldOut && !p.hidden : p.hidden)) && (pm.cat === 'all' || p.category === pm.cat) && (!q || p.name.toLowerCase().includes(q)));
+  const groups = [['cookies', 'Cookies'], ['bars', 'Revel Bars']].map(([c, l]) => [l, list.filter((p) => p.category === c)]).filter((g) => g[1].length);
+  $('#pmList').innerHTML = groups.length ? groups.map(([l, ps]) => `<div class="pm-group"><h3>${l} <span>${ps.length}</span></h3>${ps.map(pmRowHTML).join('')}</div>`).join('')
+    : `<p class="pm-empty">Nothing here. <button type="button" class="linkbtn" data-pmclear>Show all products</button></p>`;
+}
+function bindProducts(box) {
+  const s = adm.s; pmRender();
+  $('#pmQ').addEventListener('input', (e) => { pm.q = e.target.value; pmRender(); });
+  $('#pmCat').addEventListener('change', (e) => { pm.cat = e.target.value; pmRender(); });
+  $('#pmAdd').onclick = () => pmOpen(box, null);
+  $('#pmSec').addEventListener('click', (e) => {
+    const f = e.target.closest('[data-pmf]'); if (f) { pm.filter = f.dataset.pmf; pmRender(); return; }
+    if (e.target.closest('[data-pmclear]')) { pm.filter = 'all'; pm.q = ''; pm.cat = 'all'; $('#pmQ').value = ''; $('#pmCat').value = 'all'; pmRender(); return; }
+    const ed = e.target.closest('[data-pmedit]'); if (ed) { pmOpen(box, ed.dataset.pmedit); return; }
+    const sh = e.target.closest('[data-pmshow]'); if (sh) { pmSetStatus(sh.dataset.pmshow, { hidden: false }); admSave(box, 'It’s back on the menu ✓'); }
+  });
+  $('#pmSec').addEventListener('change', (e) => {
+    const c = e.target.closest('[data-pmavail]'); if (!c) return;
+    pmSetStatus(c.dataset.pmavail, { soldOut: !c.checked });
+    c.nextElementSibling.textContent = c.checked ? 'Available' : 'Sold out';
+    if (adm.storage) admSave(box, c.checked ? 'Marked as available ✓' : 'Marked as sold out ✓'); else { pmRender(); syncSave(); }
+  });
+}
+function pmSetStatus(id, { soldOut, hidden }) {
+  const s = adm.s, x = s.extraProducts.find((e) => e.id === id);
+  if (x) { if (soldOut !== undefined) x.soldOut = soldOut; if (hidden !== undefined) x.hidden = hidden; return; }
+  if (soldOut !== undefined) s.soldOut[id] = soldOut;
+  if (hidden !== undefined) { if (hidden) s.hidden[id] = true; else delete s.hidden[id]; }
+}
+const pmOrdinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+
+function pmOpen(box, id) {
+  const s = adm.s, isNew = !id;
+  const cur = isNew ? null : admProducts(s).find((p) => p.id === id); if (!isNew && !cur) return;
+  const pid = isNew ? 'c-' + Math.random().toString(36).slice(2, 10) : id;
+  const d = isNew ? { id: pid, base: false, category: 'cookies', name: '', desc: '', badge: 'New', status: 'available', price4: '', price8: '' }
+    : { id, base: cur.base, sampler: cur.sampler, category: cur.category, art: cur.art, name: cur.name, desc: cur.desc, badge: cur.badge, status: cur.hidden ? 'hidden' : cur.soldOut ? 'soldout' : 'available',
+      prices: Object.fromEntries(cur.variants.map((v) => [v.id, v.price])), price4: cur.x?.price4 ?? '', price8: cur.x?.price8 ?? '' };
+  let photo; // undefined = keep, data URL = new photo, 'remove' = back to the original / no photo
+  const orderFor = (cat) => productOrder({ ...s, order: (order || s.order).filter((x) => x !== pid || !isNew), extraProducts: isNew ? [...s.extraProducts, { id: pid, category: cat }] : s.extraProducts });
+  let order = null; order = orderFor(d.category);
+  const snap = () => JSON.stringify([d, photo, order]); const start = snap();
+  const catOf = (oid) => (oid === pid ? d.category : (BASE_PRODUCTS.find((p) => p.id === oid) || s.extraProducts.find((x) => x.id === oid))?.category);
+  const siblings = () => order.filter((oid) => catOf(oid) === d.category);
+  const curPhoto = () => (photo && photo !== 'remove' ? photo : photo === 'remove' ? (d.base ? (BASE_PRODUCTS.find((p) => p.id === pid).img ? img(BASE_PRODUCTS.find((p) => p.id === pid).img) : null) : null) : (isNew ? null : admPhotoSrc(s, pid, false)));
+  const hasOwn = () => (photo ? photo !== 'remove' : !!cur?.ownPhoto);
+  const variantsOf = () => (d.base ? cur.variants.map((v) => ({ ...v, price: Math.round(+d.prices[v.id]) || 0 })) : pmVariants({ category: d.category, price4: Math.round(+d.price4) || 0, price8: Math.round(+d.price8) || 0 }));
+
+  const el = document.createElement('div'); el.className = 'pm-sheet'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'pmT');
+  document.body.appendChild(el); document.documentElement.classList.add('pm-lock');
+  const lastFocus = document.activeElement;
+  const formHTML = () => {
+    const sib = siblings(), pos = sib.indexOf(pid), ph = curPhoto();
+    return `
+    <div class="pm-drop${ph ? ' has-photo' : ''}" id="pmDrop">
+      <span class="pm-drop__img">${ph ? `<img src="${esc(ph)}" alt="">` : artSVG(d.art || (d.category === 'bars' ? 'biscoff' : 'butter'))}</span>
+      <div class="pm-drop__act"><span class="pm-drop__hint">${ph ? 'Drop a new photo here, or' : 'Drop a photo here, or'}</span>
+        <label class="btn btn--sm" for="pmFile">${ph ? 'Change photo' : 'Take or choose a photo'}<input type="file" id="pmFile" accept="image/*" hidden></label>
+        ${hasOwn() ? `<button type="button" class="linkbtn" id="pmPhotoX">${d.base ? 'Use the original photo' : 'Remove photo'}</button>` : ''}</div>
+    </div>
+    <div class="field"><label for="pmName">Name</label><input class="input" id="pmName" maxlength="60" value="${esc(d.name)}" placeholder="e.g. Matcha White Choco"><span class="err" id="pmNameErr"></span></div>
+    <div class="field"><label for="pmDesc">Description <span class="pm-count" id="pmDescN">${d.desc.length}/300</span></label><textarea class="input" id="pmDesc" rows="3" maxlength="300" placeholder="One or two short lines about the taste and what's in it">${esc(d.desc)}</textarea></div>
+    ${d.base ? '' : `<div class="field"><span class="label-like">Type</span><div class="pm-seg" role="radiogroup" aria-label="Type">${[['cookies', 'Cookie'], ['bars', 'Revel Bar']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${d.category === v}" class="${d.category === v ? 'is-on' : ''}" data-pmcat="${v}">${l}</button>`).join('')}</div></div>`}
+    <div class="field"><span class="label-like">Price</span><div class="pm-prices">${d.base
+      ? cur.variants.map((v) => `<label><span>${esc(v.label.replace(/ \(.*\)/, ''))}</span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="1" step="1" data-pmprice="${v.id}" value="${esc(d.prices[v.id])}"></span></label>`).join('')
+      : `<label><span>${d.category === 'cookies' ? 'Box of 4' : 'Per box'}</span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="1" step="1" data-pmprice="price4" value="${esc(d.price4)}" placeholder="0"></span></label>
+         ${d.category === 'cookies' ? `<label><span>Box of 8 <span class="opt">(optional)</span></span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="1" step="1" data-pmprice="price8" value="${esc(d.price8)}" placeholder="—"></span></label>` : ''}`}</div><span class="err" id="pmPriceErr"></span></div>
+    <div class="field"><span class="label-like">Label on the photo <span class="opt">(optional)</span></span>
+      <div class="pm-chips">${['', ...LABEL_IDEAS].map((l) => `<button type="button" class="pm-chip${d.badge === l ? ' is-on' : ''}" data-pmlabel="${esc(l)}" aria-pressed="${d.badge === l}">${l ? esc(l) : 'None'}</button>`).join('')}</div>
+      <input class="input input--sm pm-ownlabel" id="pmLabel" maxlength="24" value="${esc(LABEL_IDEAS.includes(d.badge) ? '' : d.badge)}" placeholder="…or type your own label" aria-label="Your own label"></div>
+    <div class="field"><span class="label-like">Status</span><div class="pm-seg pm-seg--3" role="radiogroup" aria-label="Status">${[['available', 'Available'], ['soldout', 'Sold out'], ['hidden', 'Hidden']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${d.status === v}" class="${d.status === v ? 'is-on' : ''} pm-seg--${v}" data-pmstatus="${v}">${l}</button>`).join('')}</div>
+      <span class="hint">${d.status === 'hidden' ? 'Hidden: not on the menu at all, until you show it again.' : d.status === 'soldout' ? 'Sold out: still on the menu, but customers can’t order it.' : 'Customers can see and order it.'}</span></div>
+    <div class="field"><span class="label-like">Place on the menu</span><div class="pm-move"><button type="button" class="btn btn--ghost btn--sm" data-pmmove="-1" ${pos <= 0 ? 'disabled' : ''}>↑ Move up</button><button type="button" class="btn btn--ghost btn--sm" data-pmmove="1" ${pos >= sib.length - 1 ? 'disabled' : ''}>↓ Move down</button><span class="hint">${pmOrdinal(pos + 1)} of ${sib.length} ${d.category === 'bars' ? 'bars' : 'cookies'}</span></div></div>`;
+  };
+  const previewHTML = () => {
+    const ph = curPhoto(), v = variantsOf();
+    const p = { id: 'pm-preview', name: d.name || 'Product name', short: d.desc, desc: d.desc, category: d.category, badge: d.badge || null, soldOut: d.status === 'soldout', sampler: false, variants: v, photo: ph, img: null, art: d.art || (d.category === 'bars' ? 'biscoff' : 'butter'), gallery: [] };
+    return (d.status === 'hidden' ? '<p class="pm-prev__note">Hidden products don’t show on the menu.</p>' : '') + cardHTML(p, 0);
+  };
+  el.innerHTML = `<div class="pm-sheet__back" data-pmclose></div>
+    <div class="pm-sheet__card">
+      <header class="pm-sheet__head"><h2 id="pmT">${isNew ? 'Add a product' : 'Edit product'}</h2><button type="button" class="linkbtn" data-pmclose>Close</button></header>
+      <div class="pm-sheet__body">
+        <div class="pm-form" id="pmForm">${formHTML()}</div>
+        <aside class="pm-prev"><span class="label-like">How customers will see it</span><div class="pm-prev__card${d.status === 'hidden' ? ' is-hidden' : ''}" id="pmPrev" inert>${previewHTML()}</div></aside>
+      </div>
+      <footer class="pm-sheet__foot"><button type="button" class="btn" id="pmSave">${isNew ? 'Add to menu' : 'Save changes'}</button><button type="button" class="btn btn--ghost" data-pmclose>Cancel</button>
+        ${!isNew && !d.base ? '<button type="button" class="linkbtn pm-del" id="pmDel">Delete product</button>' : ''}</footer>
+    </div>`;
+  const form = $('#pmForm', el), prev = $('#pmPrev', el);
+  const paintPrev = () => { prev.innerHTML = previewHTML(); prev.classList.toggle('is-hidden', d.status === 'hidden'); };
+  const paint = (focusSel) => { const y = form.scrollTop, bodyY = $('.pm-sheet__body', el).scrollTop; form.innerHTML = formHTML(); paintPrev(); form.scrollTop = y; $('.pm-sheet__body', el).scrollTop = bodyY; if (focusSel) $(focusSel, el)?.focus(); };
+  const setPhoto = async (fl) => {
+    if (!fl || !/^image\//.test(fl.type)) { toast('Please choose a photo (JPG or PNG).'); return; }
+    try { photo = await shrinkImage(fl, 1200); paint(); } catch { toast('Couldn’t open that photo. Please try a JPG or PNG.'); }
+  };
+  const close = (force) => {
+    if (!force && snap() !== start && !confirm('Close without saving your changes?')) return;
+    document.removeEventListener('keydown', onKey); el.remove(); document.documentElement.classList.remove('pm-lock'); lastFocus?.focus?.();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-pmclose]')) return close();
+    const c = e.target.closest('[data-pmcat]'); if (c) { d.category = c.dataset.pmcat; d.art = d.category === 'bars' ? 'biscoff' : 'butter'; if (d.category === 'bars') d.price8 = ''; order = orderFor(d.category); return paint(); }
+    const l = e.target.closest('[data-pmlabel]'); if (l) { d.badge = l.dataset.pmlabel; return paint(); }
+    const st = e.target.closest('[data-pmstatus]'); if (st) { d.status = st.dataset.pmstatus; return paint(); }
+    const mv = e.target.closest('[data-pmmove]'); if (mv) {
+      const sib = siblings(), i = sib.indexOf(pid), other = sib[i + +mv.dataset.pmmove]; if (!other) return;
+      const a = order.indexOf(pid), b = order.indexOf(other); [order[a], order[b]] = [order[b], order[a]];
+      return paint(`[data-pmmove="${mv.dataset.pmmove}"]:not([disabled])`);
+    }
+    if (e.target.closest('#pmPhotoX')) { photo = 'remove'; return paint(); }
+  });
+  el.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.id === 'pmName') { d.name = t.value; $('#pmNameErr', el).textContent = ''; }
+    else if (t.id === 'pmDesc') { d.desc = t.value; $('#pmDescN', el).textContent = `${t.value.length}/300`; }
+    else if (t.id === 'pmLabel') { d.badge = t.value.trim(); $$('[data-pmlabel]', el).forEach((b) => { const on = b.dataset.pmlabel === d.badge; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', on); }); }
+    else if (t.dataset.pmprice) { const k = t.dataset.pmprice; if (d.base) d.prices[k] = t.value; else d[k] = t.value; $('#pmPriceErr', el).textContent = ''; }
+    else return;
+    paintPrev();
+  });
+  el.addEventListener('change', (e) => { if (e.target.id === 'pmFile') setPhoto(e.target.files?.[0]); });
+  el.addEventListener('dragover', (e) => { if (!e.target.closest('#pmDrop')) return; e.preventDefault(); $('#pmDrop', el).classList.add('is-over'); });
+  el.addEventListener('dragleave', (e) => { if (e.target.closest('#pmDrop')) $('#pmDrop', el).classList.remove('is-over'); });
+  el.addEventListener('drop', (e) => { if (!e.target.closest('#pmDrop')) return; e.preventDefault(); setPhoto(e.dataTransfer?.files?.[0]); });
+  $('#pmDel', el)?.addEventListener('click', async () => {
+    if (!confirm(`Delete “${cur.name}”? Customers won't see it anymore. (To take it off the menu for a while, choose “Hidden” instead.)`)) return;
+    s.extraProducts = s.extraProducts.filter((x) => x.id !== pid); s.order = s.order.filter((x) => x !== pid); delete adm.pimgs[pid];
+    close(true); await admSave(box, 'Product deleted');
+  });
+  $('#pmSave', el).addEventListener('click', async () => {
+    const name = d.name.trim(), v = variantsOf();
+    if (!name) { $('#pmNameErr', el).textContent = 'Please give it a name.'; $('#pmName', el).focus(); return; }
+    const bad = d.base ? v.find((x) => !(x.price > 0)) : !(Math.round(+d.price4) > 0) || (d.price8 !== '' && d.price8 != null && !(Math.round(+d.price8) > 0));
+    if (bad) { $('#pmPriceErr', el).textContent = 'Please type a price (numbers only).'; $('[data-pmprice]', el)?.focus(); return; }
+    const badge = d.badge.trim(), soldOut = d.status === 'soldout', hidden = d.status === 'hidden';
+    if (d.base) {
+      const t = BASE_TEXT[pid];
+      if (name !== t.name) s.names[pid] = name; else delete s.names[pid];
+      if (d.desc.trim() && d.desc.trim() !== t.desc) s.descs[pid] = d.desc.trim(); else delete s.descs[pid];
+      for (const x of v) s.prices[pid][x.id] = x.price;
+      s.badges[pid] = badge; s.soldOut[pid] = soldOut; if (hidden) s.hidden[pid] = true; else delete s.hidden[pid];
+    } else {
+      const x = { id: pid, name, category: d.category, desc: d.desc.trim(), price4: Math.round(+d.price4), price8: d.category === 'cookies' && Math.round(+d.price8) > 0 ? Math.round(+d.price8) : null, badge, soldOut, hidden, photo: cur?.x?.photo || '' };
+      const i = s.extraProducts.findIndex((e) => e.id === pid); if (i < 0) s.extraProducts.push(x); else s.extraProducts[i] = x;
+    }
+    s.order = order.slice();
+    if (photo) adm.pimgs[pid] = photo;
+    const b = $('#pmSave', el); b.disabled = true; b.textContent = 'Saving…';
+    if (!adm.storage) { close(true); pmRender(); syncSave(); return; }
+    const ok = await admSave(box, isNew ? `${name} is on the menu ✓` : 'Saved! Customers see it right away ✓');
+    if (ok || !document.body.contains(el)) close(true); else { b.disabled = false; b.textContent = isNew ? 'Add to menu' : 'Save changes'; }
+  });
+  setTimeout(() => (isNew ? $('#pmName', el) : $('.pm-sheet__head h2', el))?.focus(), 30);
+  $('.pm-sheet__head h2', el).tabIndex = -1;
+}
+
 const confirmLeave = () => window.confirm('You have unsaved changes. Leave without saving?');
 
 /* announcement bar */
@@ -1493,7 +1654,7 @@ async function loadShopSettings() {
     return changed;
   } catch { return false; }
 }
-function refreshCart() { const before = cart.items.length; cart.items = cart.items.filter((i) => !findProduct(i.pid)?.soldOut); if (cart.items.length !== before) cart.save(); }
+function refreshCart() { const before = cart.items.length; cart.items = cart.items.filter((i) => findVariant(findProduct(i.pid), i.vid) && !findProduct(i.pid).soldOut); if (cart.items.length !== before) cart.save(); }
 
 
 /* ───────────── care guide (cookies + revel bars) ───────────── */
