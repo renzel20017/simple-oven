@@ -1436,3 +1436,9 @@ body:not(.is-admin) img { -webkit-touch-callout: none; -webkit-user-drag: none; 
 .cnote__float { width: 34cqw; height: 19cqw; }
 .cf__rm { right: 2.5%; top: 6%; }
 .cnote--photo .cnote__top { background-image: url('/assets/wall/note-top-plain.webp'); }
+/* stronger polaroid shadow, same direction as the original frame (right + down) */
+.pol { filter: drop-shadow(3px 5px 4px rgba(40, 28, 15, .26)) drop-shadow(8px 14px 14px rgba(40, 28, 15, .14)); }
+.pol:hover, .pol:focus-within { filter: drop-shadow(5px 9px 8px rgba(40, 28, 15, .24)) drop-shadow(12px 22px 22px rgba(40, 28, 15, .14)); }
+.cnote__photo { filter: drop-shadow(2px 4px 3px rgba(40, 28, 15, .28)) drop-shadow(5px 9px 9px rgba(40, 28, 15, .12)); }
+.dump .pagehead { padding-bottom: 8px; }
+.pol__cap { top: 83%; } .pol__cap--long { font-size: 5.1cqw; line-height: 1.12; }

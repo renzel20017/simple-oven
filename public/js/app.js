@@ -1730,8 +1730,7 @@ const dateTag = (iso) => { const t = pubDate(iso); return t ? `<small>${t}</smal
 // Photo Dump
 function viewPhotos() {
   return `<div class="view wrap dump">
-    <div class="pagehead"><h1 class="eyebrow">Photo Dump</h1>
-      <p class="lead" style="margin-top:12px">Little moments from our kitchen: new batches, packed boxes and treats on their way to you.</p></div>
+    <div class="pagehead"><h1 class="eyebrow">Photo Dump</h1></div>
     <div class="dump__wall" id="dumpWall" aria-busy="true">${[0, 1, 2, 3].map((i) => `<figure class="pol pol--ghost" style="--r:${[-3, 2, -1, 3][i]}deg"><span class="pol__img"></span><img class="pol__frame" src="/assets/wall/polaroid2.webp" alt=""></figure>`).join('')}</div>
   </div>`;
 }
@@ -1739,7 +1738,7 @@ const polHTML = (p, i) => `<figure class="pol" style="--r:${tilt(p.id, 4)}deg;--
     <button type="button" class="pol__btn" data-pol="${i}" aria-label="Open photo${p.caption ? ': ' + esc(p.caption) : ''}">
       <span class="pol__img"><img src="${wimg(p.id)}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async"></span>
       <img class="pol__frame" src="/assets/wall/polaroid2.webp" alt="">
-      <figcaption class="pol__cap">${p.caption ? esc(p.caption) : '&nbsp;'}${dateTag(p.at)}</figcaption>
+      <figcaption class="pol__cap${(p.caption || '').length > 18 ? ' pol__cap--long' : ''}">${p.caption ? esc(p.caption) : '&nbsp;'}${dateTag(p.at)}</figcaption>
     </button></figure>`;
 async function bindPhotos() {
   const { photos } = await loadWall(), el = $('#dumpWall'); if (!el) return;
