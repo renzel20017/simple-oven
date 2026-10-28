@@ -433,10 +433,11 @@ function viewHome() {
   <section class="section" id="how">
     <div class="wrap">
       <div class="section__head"><div><h2 class="eyebrow rv">How to order</h2></div></div>
-      <div class="steps">
-        <div class="note rv"><div class="note__n">1</div><h3>Fill your box</h3><p>Pick your flavors and box size. Mix cookies and revel bars in one order.</p></div>
-        <div class="note rv" style="--d:100ms"><div class="note__n">2</div><h3>Tell us when</h3><p>Pick a date to collect at ${esc(SHOP.pickup.place)}, or send your own rider. No account needed.</p></div>
-        <div class="note rv" style="--d:200ms"><div class="note__n">3</div><h3>We confirm</h3><p>We'll message you to confirm your order and send payment details. Then we bake!</p></div>
+      <div class="steps steps--4">
+        <div class="note rv"><div class="note__n">1</div><h3>Build Your Box</h3><p>Pick your box size and favorite flavors. Mix and match to create your perfect box!</p></div>
+        <div class="note rv" style="--d:100ms"><div class="note__n">2</div><h3>Pick Your Day</h3><p>Choose your preferred pickup date and complete your payment to confirm your order.</p></div>
+        <div class="note rv" style="--d:200ms"><div class="note__n">3</div><h3>Fresh from the Oven</h3><p>Your treats are baked fresh on your chosen pickup date, just for you!</p></div>
+        <div class="note rv" style="--d:300ms"><div class="note__n">4</div><h3>Pick Up &amp; Enjoy</h3><p>Pick up your box at ${esc(SHOP.pickup.place)} and enjoy your freshly baked treats!</p></div>
       </div>
     </div>
   </section>

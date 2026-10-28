@@ -1387,3 +1387,9 @@ html.pm-lock { overflow: hidden; }
 }
 @media (max-width: 359px) { .nav__links a { padding: 6px 9px; font-size: 13px; } }
 .care .pagehead h1.eyebrow { margin: 0; font-size: 14px; }
+/* How to order: 4 steps, descriptions in the typewriter font */
+.steps--4 { grid-template-columns: repeat(4, 1fr); }
+.steps--4 .note:nth-child(4) { --rot: 1deg; }
+.steps .note p { font-family: 'Special Elite', 'Courier New', monospace; font-size: 15.5px; line-height: 1.6; color: #2c2621; }
+@media (max-width: 1060px) { .steps--4 { grid-template-columns: repeat(2, 1fr); row-gap: 34px; } }
+@media (max-width: 760px) { .steps--4 { grid-template-columns: 1fr; } }
