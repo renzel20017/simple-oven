@@ -1368,3 +1368,15 @@ html.pm-lock { overflow: hidden; }
 .pol__img > span { font-family: 'Special Elite', 'Courier New', monospace; font-size: 6.4cqw; }
 .lb__cap { font-family: 'Special Elite', 'Courier New', monospace; font-weight: 400; font-size: 20px; }
 .dump .pagehead h1.eyebrow, .conf .pagehead h1.eyebrow { margin: 0; font-size: 14px; }
+/* crayon stars: straight row inside the top-left of the paper, with a soft outline */
+.cnote__stars { left: 5%; top: 4.5%; gap: 0; }
+.cnote__star { width: 11.5cqw; margin-right: -1.2cqw; rotate: none; filter: drop-shadow(0 1px 0 rgba(120, 85, 20, .25)); }
+.cnote__star.is-empty { filter: grayscale(1) opacity(.38); }
+.cnote__star--sm { width: 34px !important; margin-right: -4px !important; }
+.cf__stars button { margin-right: -1.2cqw; }
+.cf__stars button .cnote__star { filter: grayscale(1) opacity(.42); }
+.cf__stars button.is-on .cnote__star { filter: drop-shadow(0 1px 0 rgba(120, 85, 20, .25)); transform: scale(1.06); }
+.cf__rate { top: 17%; left: 6%; }
+.cnote--form { padding-top: 26%; }
+.cnote__star.is-empty, .cf__stars button .cnote__star { filter: none; }
+.cf__stars button.is-on .cnote__star { filter: drop-shadow(0 1px 0 rgba(120, 85, 20, .25)); }

@@ -1718,7 +1718,7 @@ function lightbox(items, start = 0) {
 }
 
 // Sweet Confessions
-const starsHTML = (n, cls = '') => Array.from({ length: n }, (_, k) => `<img class="cnote__star${cls}" src="/assets/wall/star.webp" alt="" style="--s:${[-14, 8, -5, 12, -9][k]}deg">`).join('');
+const starsHTML = (n, cls = '') => Array.from({ length: 5 }, (_, k) => `<img class="cnote__star${cls}${k >= n ? ' is-empty' : ''}" src="/assets/wall/star2${k >= n ? '-empty' : ''}.webp" alt="">`).join('');
 function noteHTML(r, i) {
   return `<article class="cnote" style="--r:${tilt(r.id, 1.6)}deg;--d:${Math.min(i, 10) * 70}ms">
     <div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div>
@@ -1761,7 +1761,7 @@ function confessForm() {
       <form class="pm-sheet__body cf__body" id="cfForm" novalidate>
         <div class="cnote cnote--form">
           <div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div>
-          <div class="cnote__stars cf__stars" role="radiogroup" aria-label="Your rating">${[1, 2, 3, 4, 5].map((n) => `<button type="button" role="radio" aria-checked="false" aria-label="${n} star${n > 1 ? 's' : ''}" data-cfstar="${n}"><img class="cnote__star" src="/assets/wall/star.webp" alt="" style="--s:${[-14, 8, -5, 12, -9][n - 1]}deg"></button>`).join('')}</div>
+          <div class="cnote__stars cf__stars" role="radiogroup" aria-label="Your rating">${[1, 2, 3, 4, 5].map((n) => `<button type="button" role="radio" aria-checked="false" aria-label="${n} star${n > 1 ? 's' : ''}" data-cfstar="${n}"><img class="cnote__star" src="/assets/wall/star2-empty.webp" alt=""></button>`).join('')}</div>
           <span class="cf__rate" id="cfRate">Tap a star to rate us</span>
           <div class="cf__photo" id="cfPhoto"></div>
           <img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true">
@@ -1783,7 +1783,7 @@ function confessForm() {
       </form>
       <footer class="pm-sheet__foot"><button type="submit" form="cfForm" class="btn" id="cfSend">Send my confession ♡</button><button type="button" class="btn btn--ghost" data-cfx>Cancel</button></footer>
     </div>`;
-  const paintStars = () => { $$('[data-cfstar]', el).forEach((b) => { const on = +b.dataset.cfstar <= d.stars; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', +b.dataset.cfstar === d.stars); }); $('#cfRate', el).textContent = d.stars ? ['', 'Hmm, okay', 'Not bad', 'Pretty good!', 'So good!', 'Obsessed!'][d.stars] : 'Tap a star to rate us'; };
+  const paintStars = () => { $$('[data-cfstar]', el).forEach((b) => { const on = +b.dataset.cfstar <= d.stars; b.classList.toggle('is-on', on); $('img', b).src = `/assets/wall/star2${on ? '' : '-empty'}.webp`; b.setAttribute('aria-checked', +b.dataset.cfstar === d.stars); }); $('#cfRate', el).textContent = d.stars ? ['', 'Hmm, okay', 'Not bad', 'Pretty good!', 'So good!', 'Obsessed!'][d.stars] : 'Tap a star to rate us'; };
   const paintPhoto = () => { $('#cfPhoto', el).innerHTML = d.photo ? `<span class="cnote__photo"><img src="${d.photo}" alt="Your photo"></span><button type="button" class="cf__rm" id="cfRm" aria-label="Remove photo">✕</button>` : ''; $('#cfFloat', el).hidden = !d.photo; $('#cfFileLbl', el).textContent = d.photo ? '📷 Change photo' : '📷 Add a photo'; };
   const close = (force) => { if (!force && (d.text.trim() || d.photo) && !confirm('Close without sending your confession?')) return; document.removeEventListener('keydown', key); el.remove(); document.documentElement.classList.remove('pm-lock'); last?.focus?.(); };
   const key = (e) => { if (e.key === 'Escape') close(); };
