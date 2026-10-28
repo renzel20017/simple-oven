@@ -201,7 +201,7 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order', 'addons'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order', 'addons', 'dateStyle', 'gallery'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
@@ -216,9 +216,10 @@ export const DEFAULT_ADDONS = [
 export const ADDONS = DEFAULT_ADDONS.map((a) => ({ ...a, choices: [...a.choices] })); // live list (filled from the owner's settings)
 // built-in products (the owner can rename them); products the owner adds are stored in settings.extraProducts
 export const BASE_PRODUCTS = PRODUCTS.slice();
+export const BASE_GALLERY = Object.fromEntries(PRODUCTS.map((p) => [p.id, [...(p.gallery || [])]]));
 export const BASE_TEXT = Object.fromEntries(PRODUCTS.map((p) => [p.id, { name: p.name, short: p.short, desc: p.desc }]));
 export const isCustomId = (id) => /^c-[a-z0-9]{4,12}$/.test(String(id));
-const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], hidden: {}, photos: {}, order: [], soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
+const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], hidden: {}, photos: {}, order: [], dateStyle: 'full', gallery: {}, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
   prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
   badges: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.badge || ''])),
   addons: DEFAULT_ADDONS, addonPrices: { wrap4: 5, wrap8: 10, ribbon: 10 } }));
@@ -300,6 +301,14 @@ export function cleanSettings(raw) {
     const ap = out.addonPrices; out.addons[0].price = ap.wrap4; out.addons[0].price8 = ap.wrap8; out.addons[1].price = ap.ribbon;
     if (Array.isArray(r.ribbonColors)) out.addons[1].choices = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   }
+  if (['full', 'my', 'm', 'y', 'none'].includes(r.dateStyle)) out.dateStyle = r.dateStyle;
+  // product page extra photos: built-in ones the owner hid + the owner's own extra photos
+  if (r.gallery && typeof r.gallery === 'object') for (const [pid, g] of Object.entries(r.gallery)) {
+    if (!/^[a-z0-9-]{1,40}$/.test(pid) || !g || typeof g !== 'object') continue;
+    const hide = Array.isArray(g.hide) ? [...new Set(g.hide.map(String).filter((k) => /^[a-z0-9-]{1,40}$/.test(k)))].slice(0, 20) : [];
+    const extra = Array.isArray(g.extra) ? g.extra.filter((e) => e && new RegExp('^' + pid + '\\.g[a-z0-9]{4,10}$').test(e.id)).map((e) => ({ id: e.id, v: /^\d{10,16}$/.test(String(e.v || '')) ? String(e.v) : '' })).slice(0, 8) : [];
+    if (hide.length || extra.length) out.gallery[pid] = { hide, extra };
+  }
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   return out;
 }
@@ -320,13 +329,16 @@ export function applySettings(raw) {
     p.soldOut = !!s.soldOut[p.id]; for (const v of p.variants) v.price = s.prices[p.id][v.id]; p.badge = s.badges[p.id] || null;
     const t = BASE_TEXT[p.id]; p.name = s.names[p.id] || t.name; if (s.descs[p.id]) { p.short = p.desc = s.descs[p.id]; } else { p.short = t.short; p.desc = t.desc; }
     p.hidden = !!s.hidden[p.id];
+    const g = s.gallery[p.id]; // extra photos under the main photo: hide built-in ones, add the owner's own
+    p.gallery = BASE_GALLERY[p.id].filter((k, i) => i === 0 || !g?.hide.includes(k));
+    p.extraPhotos = (g?.extra || []).filter((e) => e.v).map((e) => `/api/pimg?id=${e.id}&v=${e.v}`);
     p.photo = s.photos[p.id] ? `/api/pimg?id=${p.id}&v=${s.photos[p.id]}` : null; // owner's own photo replaces the built-in one
   }
   const all = Object.fromEntries(BASE_PRODUCTS.map((p) => [p.id, p]));
   for (const x of s.extraProducts) {
     const cp = { id: x.id, name: x.name, category: x.category, custom: true, soldOut: x.soldOut, badge: x.badge || null, short: x.desc, desc: x.desc,
       variants: x.price8 ? [{ id: '4', label: 'Box of 4', price: x.price4 }, { id: '8', label: 'Box of 8', price: x.price8 }] : [{ id: 'box', label: 'Per box', price: x.price4 }],
-      hidden: x.hidden, img: null, photo: x.photo ? `/api/pimg?id=${x.id}&v=${x.photo}` : null, art: x.category === 'bars' ? 'biscoff' : 'butter', gallery: [], tone: '#b47a3e' };
+      hidden: x.hidden, extraPhotos: (s.gallery[x.id]?.extra || []).filter((e) => e.v).map((e) => `/api/pimg?id=${e.id}&v=${e.v}`), img: null, photo: x.photo ? `/api/pimg?id=${x.id}&v=${x.photo}` : null, art: x.category === 'bars' ? 'biscoff' : 'butter', gallery: [], tone: '#b47a3e' };
     all[x.id] = cp;
   }
   // menu order (owner can move products up/down); hidden products are left off the menu entirely

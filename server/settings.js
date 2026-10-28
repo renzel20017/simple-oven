@@ -70,6 +70,7 @@ export async function handleAdmin(request, env) {
     const targets = [
       ...BASE_PRODUCTS.map((p) => ({ id: p.id, name: clean.names[p.id] || p.name, set: (v) => { if (v) clean.photos[p.id] = v; else delete clean.photos[p.id]; } })),
       ...clean.extraProducts.map((x) => ({ id: x.id, name: x.name, set: (v) => { x.photo = v; } })),
+      ...Object.values(clean.gallery).flatMap((g) => g.extra.map((e) => ({ id: e.id, name: 'an extra photo', set: (v) => { e.v = v; } }))),
     ];
     for (const t of targets) {
       const v = pim[t.id];
@@ -80,8 +81,15 @@ export async function handleAdmin(request, env) {
         t.set(String(Date.now()));
       }
     }
-    // clean up photos of products that were deleted
-    try { const old = await env.SETTINGS.get(KEY, 'json'); for (const o of old?.extraProducts || []) if (!clean.extraProducts.some((x) => x.id === o.id)) await env.SETTINGS.delete('pimg:' + o.id); } catch {}
+    // extra photos that never got their picture are dropped
+    for (const [pid, g] of Object.entries(clean.gallery)) { g.extra = g.extra.filter((e) => e.v); if (!g.hide.length && !g.extra.length) delete clean.gallery[pid]; }
+    // clean up photos of products / extra photos that were deleted
+    try {
+      const old = await env.SETTINGS.get(KEY, 'json');
+      for (const o of old?.extraProducts || []) if (!clean.extraProducts.some((x) => x.id === o.id)) await env.SETTINGS.delete('pimg:' + o.id);
+      const keep = new Set(Object.values(clean.gallery).flatMap((g) => g.extra.map((e) => e.id)));
+      for (const g of Object.values(old?.gallery || {})) for (const e of g?.extra || []) if (!keep.has(e.id)) await env.SETTINGS.delete('pimg:' + e.id);
+    } catch {}
     try { await env.SETTINGS.put(KEY, JSON.stringify(clean)); }
     catch (e) { console.error('[settings] save failed', e); return json(502, { ok: false, error: 'Couldn’t save right now. Please try again in a minute.' }); }
     cache = { at: Date.now(), value: { ...clean, storage: true } };
@@ -113,7 +121,7 @@ export async function rememberRef(env, ref, orderId) {
 // GET /api/pimg?id=<product id> → the owner's uploaded photo for that product
 export async function handlePimg(request, env) {
   const id = new URL(request.url).searchParams.get('id') || '';
-  if (!env.SETTINGS || !/^[a-z0-9-]{2,40}$/.test(id)) return new Response('Not found', { status: 404 });
+  if (!env.SETTINGS || !/^[a-z0-9-]{2,40}(\.g[a-z0-9]{4,10})?$/.test(id)) return new Response('Not found', { status: 404 });
   const v = await env.SETTINGS.get('pimg:' + id).catch(() => null);
   const m = v && /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/.exec(v);
   if (!m) return new Response('Not found', { status: 404 });
