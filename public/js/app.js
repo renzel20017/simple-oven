@@ -1732,19 +1732,19 @@ function viewPhotos() {
   return `<div class="view wrap dump">
     <div class="pagehead"><h1 class="eyebrow">Photo Dump</h1>
       <p class="lead" style="margin-top:12px">Little moments from our kitchen: new batches, packed boxes and treats on their way to you.</p></div>
-    <div class="dump__wall" id="dumpWall" aria-busy="true">${[0, 1, 2, 3].map((i) => `<figure class="pol pol--ghost" style="--r:${[-3, 2, -1, 3][i]}deg"><span class="pol__img"></span><img class="pol__frame" src="/assets/wall/polaroid.webp" alt=""></figure>`).join('')}</div>
+    <div class="dump__wall" id="dumpWall" aria-busy="true">${[0, 1, 2, 3].map((i) => `<figure class="pol pol--ghost" style="--r:${[-3, 2, -1, 3][i]}deg"><span class="pol__img"></span><img class="pol__frame" src="/assets/wall/polaroid2.webp" alt=""></figure>`).join('')}</div>
   </div>`;
 }
 const polHTML = (p, i) => `<figure class="pol" style="--r:${tilt(p.id, 4)}deg;--d:${Math.min(i, 12) * 70}ms">
     <button type="button" class="pol__btn" data-pol="${i}" aria-label="Open photo${p.caption ? ': ' + esc(p.caption) : ''}">
       <span class="pol__img"><img src="${wimg(p.id)}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async"></span>
-      <img class="pol__frame" src="/assets/wall/polaroid.webp" alt="">
+      <img class="pol__frame" src="/assets/wall/polaroid2.webp" alt="">
       <figcaption class="pol__cap">${p.caption ? esc(p.caption) : '&nbsp;'}${dateTag(p.at)}</figcaption>
     </button></figure>`;
 async function bindPhotos() {
   const { photos } = await loadWall(), el = $('#dumpWall'); if (!el) return;
   el.removeAttribute('aria-busy');
-  if (!photos.length) { el.innerHTML = `<figure class="pol pol--empty" style="--r:-2deg"><span class="pol__img"><span>Photos coming soon ♡</span></span><img class="pol__frame" src="/assets/wall/polaroid.webp" alt=""><figcaption class="pol__cap">the oven is still warm</figcaption></figure>`; return; }
+  if (!photos.length) { el.innerHTML = `<figure class="pol pol--empty" style="--r:-2deg"><span class="pol__img"><span>Photos coming soon ♡</span></span><img class="pol__frame" src="/assets/wall/polaroid2.webp" alt=""><figcaption class="pol__cap">the oven is still warm</figcaption></figure>`; return; }
   el.innerHTML = photos.map(polHTML).join('');
   el.addEventListener('click', (e) => { const b = e.target.closest('[data-pol]'); if (b) lightbox(photos.map((p) => ({ src: wimg(p.id), cap: p.caption, sub: pubDate(p.at) })), +b.dataset.pol); });
 }
@@ -1773,11 +1773,10 @@ function lightbox(items, start = 0) {
 // Sweet Confessions
 const starsHTML = (n, cls = '') => Array.from({ length: 5 }, (_, k) => `<img class="cnote__star${cls}${k >= n ? ' is-empty' : ''}" src="/assets/wall/star3${k >= n ? '-empty' : ''}.webp" alt="">`).join('');
 function noteHTML(r, i) {
-  return `<article class="cnote" style="--r:${tilt(r.id, 1.6)}deg;--d:${Math.min(i, 10) * 70}ms">
+  return `<article class="cnote${r.photo ? ' cnote--photo' : ''}" style="--r:${tilt(r.id, 1.6)}deg;--d:${Math.min(i, 10) * 70}ms">
     <div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div>
     <div class="cnote__stars" role="img" aria-label="${r.stars} out of 5 stars">${starsHTML(r.stars)}</div>
-    ${r.photo ? `<button type="button" class="cnote__photo" data-nphoto="${esc(r.id)}" aria-label="See the photo from ${esc(r.name || 'this customer')}"><img src="${wimg(r.id)}" alt="" loading="lazy"></button>` : ''}
-    <img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true">
+    ${r.photo ? `<button type="button" class="cnote__photo" data-nphoto="${esc(r.id)}" aria-label="See the photo from ${esc(r.name || 'this customer')}"><span class="cnote__pimg"><img src="${wimg(r.id)}" alt="" loading="lazy"></span><img class="cnote__pframe" src="/assets/wall/polaroid2.webp" alt=""></button>` : '<img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true">'}
     <div class="cnote__body">${r.photo ? '<span class="cnote__float" aria-hidden="true"></span>' : ''}
       <p class="cnote__text">${esc(r.text).replace(/\n/g, '<br>')}</p>
       <p class="cnote__sig">— ${r.name ? esc(r.name) : 'Anonymous'}${dateTag(r.at)}</p></div>
@@ -1837,7 +1836,7 @@ function confessForm() {
       <footer class="pm-sheet__foot"><button type="submit" form="cfForm" class="btn" id="cfSend">Send my confession ♡</button><button type="button" class="btn btn--ghost" data-cfx>Cancel</button></footer>
     </div>`;
   const paintStars = () => { $$('[data-cfstar]', el).forEach((b) => { const on = +b.dataset.cfstar <= d.stars; b.classList.toggle('is-on', on); $('img', b).src = `/assets/wall/star3${on ? '' : '-empty'}.webp`; b.setAttribute('aria-checked', +b.dataset.cfstar === d.stars); }); $('#cfRate', el).textContent = d.stars ? ['', 'Hmm, okay', 'Not bad', 'Pretty good!', 'So good!', 'Obsessed!'][d.stars] : 'Tap a star to rate us'; };
-  const paintPhoto = () => { $('#cfPhoto', el).innerHTML = d.photo ? `<span class="cnote__photo"><img src="${d.photo}" alt="Your photo"></span><button type="button" class="cf__rm" id="cfRm" aria-label="Remove photo">✕</button>` : ''; $('#cfFloat', el).hidden = !d.photo; $('#cfFileLbl', el).textContent = d.photo ? '📷 Change photo' : '📷 Add a photo'; };
+  const paintPhoto = () => { $('#cfPhoto', el).innerHTML = d.photo ? `<span class="cnote__photo"><span class="cnote__pimg"><img src="${d.photo}" alt="Your photo"></span><img class="cnote__pframe" src="/assets/wall/polaroid2.webp" alt=""></span><button type="button" class="cf__rm" id="cfRm" aria-label="Remove photo">✕</button>` : ''; $('#cfFloat', el).hidden = !d.photo; $('.cnote--form > .cnote__clip', el).hidden = !!d.photo; $('.cnote--form', el).classList.toggle('cnote--photo', !!d.photo); $('#cfFileLbl', el).textContent = d.photo ? '📷 Change photo' : '📷 Add a photo'; };
   const close = (force) => { if (!force && (d.text.trim() || d.photo) && !confirm('Close without sending your confession?')) return; document.removeEventListener('keydown', key); el.remove(); document.documentElement.classList.remove('pm-lock'); last?.focus?.(); };
   const key = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', key);
