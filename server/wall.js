@@ -98,6 +98,11 @@ export async function wallAdmin(body, env) {
   if (a === 'gallery-caption') { list[i].caption = clean(body.caption, 80); await putList(env, 'gallery', list); return json(200, { ok: true, photos: list }); }
   if (a === 'gallery-move') { const j = i + (body.dir < 0 ? -1 : 1); if (j >= 0 && j < list.length) [list[i], list[j]] = [list[j], list[i]]; await putList(env, 'gallery', list); return json(200, { ok: true, photos: list }); }
   if (a === 'gallery-del') { const [g] = list.splice(i, 1); await env.SETTINGS.delete('gimg:' + g.id).catch(() => {}); await putList(env, 'gallery', list); return json(200, { ok: true, photos: list }); }
+  if (a === 'gallery-date' || a === 'review-date') { // owner changes the date shown
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.date)) || isNaN(Date.parse(body.date))) return json(400, { ok: false, error: 'Please pick a valid date.' });
+    list[i].at = `${body.date}T12:00:00+08:00`; await putList(env, a.startsWith('gallery') ? 'gallery' : 'reviews', list);
+    return json(200, { ok: true, [a.startsWith('gallery') ? 'photos' : 'reviews']: list });
+  }
   if (a === 'review-status') { list[i].ok = !!body.ok; await putList(env, 'reviews', list); return json(200, { ok: true, reviews: list }); }
   if (a === 'review-del') { const [r] = list.splice(i, 1); if (r.photo) await env.SETTINGS.delete('rimg:' + r.id).catch(() => {}); await putList(env, 'reviews', list); return json(200, { ok: true, reviews: list }); }
   return json(400, { ok: false, error: 'Unknown action.' });

@@ -1486,3 +1486,5 @@ body:not(.is-admin) img { -webkit-touch-callout: none; -webkit-user-drag: none; 
   .ord-table th, .ord-table td { padding: 8px 9px; font-size: 13.5px; }
   .ord-table td:first-child { white-space: normal; min-width: 120px; }
 }
+.adm-date .input { min-height: 34px; padding: 4px 8px; font-size: 13.5px; width: auto; }
+.adm-dump__date { min-height: 36px !important; font-size: 13.5px !important; }

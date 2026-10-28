@@ -1819,12 +1819,13 @@ const tilt = (id, max = 5) => { let h = 0; for (const c of String(id)) h = (h * 
 const shortDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' }); } catch { return ''; } };
 // date on the public Photo Dump / Sweet Confessions, as the owner chose: full | my (month & year) | m (month) | y (year) | none
 const DATE_STYLES = [['full', 'Month, day & year (Oct 28, 2026)'], ['my', 'Month & year (October 2026)'], ['m', 'Month only (October)'], ['y', 'Year only (2026)'], ['none', 'Don’t show dates']];
-const pubDate = (iso) => {
-  const f = { my: { month: 'long', year: 'numeric' }, m: { month: 'long' }, y: { year: 'numeric' } }[SHOP.dateStyle];
-  if (SHOP.dateStyle === 'none') return '';
+const pubDate = (iso, kind) => {
+  const style = kind === 'review' ? SHOP.reviewDateStyle : SHOP.dateStyle;
+  const f = { my: { month: 'long', year: 'numeric' }, m: { month: 'long' }, y: { year: 'numeric' } }[style];
+  if (style === 'none') return '';
   try { return f ? new Date(iso).toLocaleDateString('en-PH', { ...f, timeZone: 'Asia/Manila' }) : shortDate(iso); } catch { return ''; }
 };
-const dateTag = (iso) => { const t = pubDate(iso); return t ? `<small>${t}</small>` : ''; };
+const dateTag = (iso, kind) => { const t = pubDate(iso, kind); return t ? `<small>${t}</small>` : ''; };
 
 // Photo Dump
 function viewPhotos() {
@@ -1877,7 +1878,7 @@ function noteHTML(r, i) {
     ${r.photo ? `<button type="button" class="cnote__photo" data-nphoto="${esc(r.id)}" aria-label="See the photo from ${esc(r.name || 'this customer')}"><span class="cnote__pimg"><img src="${wimg(r.id)}" alt="" loading="lazy"></span><img class="cnote__pframe" src="/assets/wall/polaroid2.webp" alt=""></button>` : '<img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true">'}
     <div class="cnote__body">${r.photo ? '<span class="cnote__float" aria-hidden="true"></span>' : ''}
       <p class="cnote__text">${esc(r.text).replace(/\n/g, '<br>')}</p>
-      <p class="cnote__sig">— ${r.name ? esc(r.name) : 'Anonymous'}${dateTag(r.at)}</p></div>
+      <p class="cnote__sig">— ${r.name ? esc(r.name) : 'Anonymous'}${dateTag(r.at, 'review')}</p></div>
   </article>`;
 }
 function viewConfessions() {
@@ -1898,7 +1899,7 @@ async function bindConfessions() {
   }
   el.innerHTML = reviews.length ? reviews.map(noteHTML).join('')
     : `<article class="cnote cnote--empty" style="--r:-1deg"><div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div><img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true"><div class="cnote__body"><p class="cnote__text">No confessions yet... be the very first one to tell us how your cookies were!</p><p class="cnote__sig">— Simple Oven</p></div></article>`;
-  el.addEventListener('click', (e) => { const b = e.target.closest('[data-nphoto]'); if (!b) return; const r = reviews.find((x) => x.id === b.dataset.nphoto); lightbox([{ src: wimg(r.id), cap: r.name ? `from ${r.name}` : 'from Anonymous', sub: pubDate(r.at) }]); });
+  el.addEventListener('click', (e) => { const b = e.target.closest('[data-nphoto]'); if (!b) return; const r = reviews.find((x) => x.id === b.dataset.nphoto); lightbox([{ src: wimg(r.id), cap: r.name ? `from ${r.name}` : 'from Anonymous', sub: pubDate(r.at, 'review') }]); });
 }
 function confessForm() {
   const d = { stars: 0, text: '', name: store.get('so_conf_name', ''), anonymous: false, photo: '' };
@@ -1969,12 +1970,13 @@ const admWallSections = () => `
   <section class="panel adm-sec" id="admDumpSec">
     <div class="pm-head"><h2><span class="num">✦</span>Photo Dump</h2><label class="btn btn--sm" for="admDumpFile">+ Upload photos<input type="file" id="admDumpFile" accept="image/*" multiple hidden></label></div>
     <p class="fine">Photos of your bakes for the Photo Dump page. Add a short caption if you like (it's written under the photo). Newest show first.</p>
-    <label class="adm-datestyle"><span>Dates shown on Photo Dump &amp; Sweet Confessions</span><select class="input input--sm" id="admDateStyle">${DATE_STYLES.map(([v, l]) => `<option value="${v}" ${adm.s.dateStyle === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="adm-datestyle"><span>Dates shown under the photos</span><select class="input input--sm" id="admDateStyle">${DATE_STYLES.map(([v, l]) => `<option value="${v}" ${adm.s.dateStyle === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div id="admDump" class="adm-dump"><p class="fine">Loading…</p></div>
   </section>
   <section class="panel adm-sec" id="admConfSec">
     <h2><span class="num">♡</span>Sweet confessions</h2>
     <p class="fine">Reviews from customers. New ones wait here until you approve them, so nothing shows without your OK.</p>
+    <label class="adm-datestyle"><span>Dates shown on the reviews</span><select class="input input--sm" id="admRevDateStyle">${DATE_STYLES.map(([v, l]) => `<option value="${v}" ${adm.s.reviewDateStyle === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div id="admConf"><p class="fine">Loading…</p></div>
   </section>`;
 const admStars = (n) => `<span class="adm-stars" aria-label="${n} out of 5">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>`;
@@ -1983,12 +1985,13 @@ function admWallRender() {
   $('#admDump').innerHTML = w.photos.length ? w.photos.map((p, i) => `<div class="adm-dump__item">
       <a class="adm-dump__img" href="${wimg(p.id)}" target="_blank" rel="noopener"><img src="${wimg(p.id)}" alt="" loading="lazy"></a>
       <input class="input input--sm" data-dcap="${p.id}" maxlength="80" value="${esc(p.caption)}" placeholder="Add a caption…" aria-label="Caption">
+      <input type="date" class="input input--sm adm-dump__date" data-gdate="${p.id}" value="${p.at.slice(0, 10)}" max="${manilaNow().date}" aria-label="Photo date">
       <div class="adm-dump__act"><button type="button" class="iconbtn" data-dmove="${p.id}:-1" ${i ? '' : 'disabled'} aria-label="Move earlier">←</button><button type="button" class="iconbtn" data-dmove="${p.id}:1" ${i < w.photos.length - 1 ? '' : 'disabled'} aria-label="Move later">→</button><button type="button" class="linkbtn adm-dump__del" data-ddel="${p.id}">Delete</button></div>
     </div>`).join('') : '<p class="pm-empty">No photos yet. Tap “Upload photos” to add your first ones.</p>';
   const waiting = w.reviews.filter((r) => !r.ok), live = w.reviews.filter((r) => r.ok), tab = adm.confTab || (waiting.length ? 'wait' : 'live');
   const card = (r) => `<div class="adm-conf__item${r.ok ? '' : ' is-wait'}">
       ${r.photo ? `<a class="adm-conf__img" href="${wimg(r.id)}" target="_blank" rel="noopener"><img src="${wimg(r.id)}" alt="Photo from the customer" loading="lazy"></a>` : ''}
-      <div class="adm-conf__txt"><div class="adm-conf__top">${admStars(r.stars)}<b>${r.name ? esc(r.name) : 'Anonymous'}</b><span class="fine">${shortDate(r.at)}</span></div>
+      <div class="adm-conf__txt"><div class="adm-conf__top">${admStars(r.stars)}<b>${r.name ? esc(r.name) : 'Anonymous'}</b><label class="adm-date"><span class="sr">Review date</span><input type="date" class="input input--sm" data-rdate="${r.id}" value="${r.at.slice(0, 10)}" max="${manilaNow().date}"></label></div>
         <p>${esc(r.text).replace(/\n/g, '<br>')}</p>
         <div class="adm-conf__act">${r.ok ? `<button type="button" class="btn btn--ghost btn--sm" data-rstat="${r.id}:0">Hide from page</button>` : `<button type="button" class="btn btn--sm" data-rstat="${r.id}:1">Approve &amp; show</button>`}<button type="button" class="linkbtn adm-dump__del" data-rdel="${r.id}">Delete</button></div></div>
     </div>`;
@@ -2009,7 +2012,8 @@ async function bindAdminWall() {
     if (j && !j.ok && $('#admDump')) { $('#admDump').innerHTML = `<p class="fine">${esc(j.error || 'Couldn’t load the photos.')}</p>`; }
   }
   admWallRender();
-  $('#admDateStyle')?.addEventListener('change', (e) => { adm.s.dateStyle = e.target.value; WALL.data = null; admSave($('#adm'), 'Date setting saved ✓'); });
+  $('#admDateStyle')?.addEventListener('change', (e) => { adm.s.dateStyle = e.target.value; WALL.data = null; admSave($('#adm'), 'Photo dates saved ✓'); });
+  $('#admRevDateStyle')?.addEventListener('change', (e) => { adm.s.reviewDateStyle = e.target.value; WALL.data = null; admSave($('#adm'), 'Review dates saved ✓'); });
   $('#admDumpFile').addEventListener('change', async (e) => {
     const files = [...(e.target.files || [])].slice(0, 20); e.target.value = ''; if (!files.length) return;
     const lbl = $('#admDumpSec .pm-head .btn'); let done = 0;
@@ -2021,7 +2025,11 @@ async function bindAdminWall() {
     lbl.firstChild.textContent = '+ Upload photos';
     if (done) toast(`${done} photo${done > 1 ? 's' : ''} added to the Photo Dump ✓`);
   });
-  $('#admDumpSec').addEventListener('change', (e) => { const c = e.target.closest('[data-dcap]'); if (c) admWallCall('gallery-caption', { id: c.dataset.dcap, caption: c.value }, 'Caption saved ✓'); });
+  $('#admDumpSec').addEventListener('change', (e) => {
+    const c = e.target.closest('[data-dcap]'); if (c) admWallCall('gallery-caption', { id: c.dataset.dcap, caption: c.value }, 'Caption saved ✓');
+    const d = e.target.closest('[data-gdate]'); if (d && d.value) admWallCall('gallery-date', { id: d.dataset.gdate, date: d.value }, 'Photo date saved ✓');
+  });
+  $('#admConfSec').addEventListener('change', (e) => { const d = e.target.closest('[data-rdate]'); if (d && d.value) admWallCall('review-date', { id: d.dataset.rdate, date: d.value }, 'Review date saved ✓'); });
   $('#admDumpSec').addEventListener('click', (e) => {
     const m = e.target.closest('[data-dmove]'); if (m) { const [id, dir] = m.dataset.dmove.split(':'); admWallCall('gallery-move', { id, dir: +dir }); }
     const d = e.target.closest('[data-ddel]'); if (d && confirm('Delete this photo from the Photo Dump?')) admWallCall('gallery-del', { id: d.dataset.ddel }, 'Photo deleted');

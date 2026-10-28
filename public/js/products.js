@@ -201,7 +201,7 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order', 'addons', 'dateStyle', 'gallery'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order', 'addons', 'dateStyle', 'reviewDateStyle', 'gallery'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
@@ -219,7 +219,7 @@ export const BASE_PRODUCTS = PRODUCTS.slice();
 export const BASE_GALLERY = Object.fromEntries(PRODUCTS.map((p) => [p.id, [...(p.gallery || [])]]));
 export const BASE_TEXT = Object.fromEntries(PRODUCTS.map((p) => [p.id, { name: p.name, short: p.short, desc: p.desc }]));
 export const isCustomId = (id) => /^c-[a-z0-9]{4,12}$/.test(String(id));
-const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], hidden: {}, photos: {}, order: [], dateStyle: 'full', gallery: {}, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
+const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], hidden: {}, photos: {}, order: [], dateStyle: 'full', reviewDateStyle: 'full', gallery: {}, soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
   prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
   badges: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.badge || ''])),
   addons: DEFAULT_ADDONS, addonPrices: { wrap4: 5, wrap8: 10, ribbon: 10 } }));
@@ -302,6 +302,8 @@ export function cleanSettings(raw) {
     if (Array.isArray(r.ribbonColors)) out.addons[1].choices = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   }
   if (['full', 'my', 'm', 'y', 'none'].includes(r.dateStyle)) out.dateStyle = r.dateStyle;
+  if (['full', 'my', 'm', 'y', 'none'].includes(r.reviewDateStyle)) out.reviewDateStyle = r.reviewDateStyle;
+  else if (['full', 'my', 'm', 'y', 'none'].includes(r.dateStyle) && !('reviewDateStyle' in r)) out.reviewDateStyle = r.dateStyle; // older setting covered both
   // product page extra photos: built-in ones the owner hid + the owner's own extra photos
   if (r.gallery && typeof r.gallery === 'object') for (const [pid, g] of Object.entries(r.gallery)) {
     if (!/^[a-z0-9-]{1,40}$/.test(pid) || !g || typeof g !== 'object') continue;
