@@ -4,6 +4,7 @@
 //  and the order row in Google Sheets is marked "Proof received" if Sheets is set up.
 // ─────────────────────────────────────────────────────────────
 import { esc, clean, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
+import { markProof } from './orders.js';
 
 const limiter = rateLimiter(5, 10 * 60 * 1000);
 const MAX_BYTES = 3 * 1024 * 1024; // the site shrinks screenshots before sending, so real ones are far smaller
@@ -67,5 +68,6 @@ export async function handleProof(request, env) {
   }
   limiter.hit(ip);
   await logToSheet(env, { action: 'payment', orderId: proof.orderId, phone: proof.phone, amount: proof.amount, at: new Date().toISOString() });
+  await markProof(env, proof.orderId);
   return json(200, { ok: true });
 }

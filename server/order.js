@@ -3,6 +3,7 @@
 // and closed dates, emails the order via Resend, then logs it to Google Sheets (optional).
 import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst, addonPrice, addonText, lineAdds, cleanTip } from '../public/js/products.js';
 import { useSettings, refUsed, rememberRef } from './settings.js';
+import { recordOrder } from './orders.js';
 import { esc, clean, peso, todayManila, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
 
 const MAX_LINES = 20;
@@ -201,6 +202,7 @@ export async function handleOrder(request, env) {
   }
   limiter.hit(ip);
   if (order.proofHash) await rememberRef(env, 'img:' + order.proofHash, order.orderId);
+  await recordOrder(env, order); // copy for the owner page's order summary
 
   // extras that must never break a successful order
   const extras = [logToSheet(env, { action: 'order', order: {

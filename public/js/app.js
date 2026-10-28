@@ -1,4 +1,4 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, addonsFor, addonUnit, lineAdds, addonPrice, addonText, cleanTip, BASE_PRODUCTS, BASE_TEXT, BASE_GALLERY, productOrder } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, addonsFor, addonUnit, lineAdds, addonPrice, addonText, cleanTip, BASE_PRODUCTS, BASE_TEXT, BASE_GALLERY, productOrder, timeKey } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
 try { const c = JSON.parse(localStorage.getItem('so_settings') || 'null'); if (c && !window.SO_DEMO) applySettings(c); } catch {}
 
@@ -1276,6 +1276,8 @@ function renderAdmin(box) {
   ${adm.storage ? '' : `<div class="adm-warn"><b>Saving isn't switched on yet.</b> You can look around, but changes can't be saved until the KV storage is connected in Cloudflare (README step 10).</div>`}
   <div class="adm-top"><span class="fine">${ago ? `Last saved ${esc(ago)}` : 'Using the starting settings'}</span><button type="button" class="linkbtn" id="admOut">Log out</button></div>
 
+  ${ordSectionHTML()}
+
   ${pmSectionHTML()}
 
   <section class="panel adm-sec" id="aoSec">
@@ -1423,6 +1425,7 @@ function bindAdminEvents(box) {
   $('#admSave').onclick = () => admSave(box);
   bindProducts(box);
   bindAdminWall();
+  bindOrders();
 }
 async function admSave(box, okMsg = 'Saved! Customers see the changes right away.') {
   const s = adm.s, rerender = () => { const y = scrollY; renderAdmin(box); window.scrollTo(0, y); };
@@ -1668,6 +1671,102 @@ function pmOpen(box, id) {
   });
   setTimeout(() => (isNew ? $('#pmName', el) : $('.pm-sheet__head h2', el))?.focus(), 30);
   $('.pm-sheet__head h2', el).tabIndex = -1;
+}
+
+
+/* ───── owner page: Orders summary + baking list ───── */
+const ORD_RANGES = [['upcoming', 'Upcoming'], ['today', 'Today'], ['tomorrow', 'Tomorrow'], ['week', 'Next 7 days'], ['month', 'This month'], ['past', 'Past'], ['all', 'All']];
+const niceDay = (ds) => new Date(ds + 'T00:00:00Z').toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const ordInRange = (o, r) => {
+  const t = manilaNow().date;
+  return r === 'all' || (r === 'upcoming' && o.date >= t) || (r === 'today' && o.date === t) || (r === 'tomorrow' && o.date === addDays(t, 1))
+    || (r === 'week' && o.date >= t && o.date <= addDays(t, 6)) || (r === 'month' && o.date.slice(0, 7) === t.slice(0, 7)) || (r === 'past' && o.date < t);
+};
+const ordSort = (a, b) => a.date.localeCompare(b.date) || (timeKey(a.time) ?? 1e9) - (timeKey(b.time) ?? 1e9) || a.at.localeCompare(b.at);
+const vLabel = (l) => findVariant(findProduct(l.pid), l.vid)?.label.replace(/ \(.*\)/, '') || String(l.variant).split(' · ')[0];
+function ordSummary(orders) {
+  const live = orders.filter((o) => o.status !== 'cancelled');
+  const prod = new Map(), flavor = new Map(), adds = new Map();
+  let boxes = 0, pcs = 0, sales = 0;
+  for (const o of live) {
+    sales += o.total;
+    for (const l of o.lines) {
+      const p = findProduct(l.pid), name = p?.name || l.name, isBar = (p?.category || '') === 'bars' || l.vid === 'box';
+      const row = prod.get(l.pid) || { name, isBar, v: new Map(), pcs: 0, boxes: 0 }; prod.set(l.pid, row);
+      const lab = vLabel(l); row.v.set(lab, (row.v.get(lab) || 0) + l.qty); row.boxes += l.qty; boxes += l.qty;
+      const n = isBar ? 0 : (parseInt(l.vid, 10) || 0) * l.qty; row.pcs += n; pcs += n;
+      // cookies per flavor (a Sampler is 1 of each flavor per 4)
+      if (p?.sampler) for (const id of SAMPLER_MIX) flavor.set(id, (flavor.get(id) || 0) + n / SAMPLER_MIX.length);
+      else if (!isBar) flavor.set(l.pid, (flavor.get(l.pid) || 0) + n);
+      for (const [aid, choice] of Object.entries(l.adds || {})) {
+        const a = adds.get(aid) || { name: ADDONS.find((x) => x.id === aid)?.name || aid, n: 0, choices: new Map() }; adds.set(aid, a);
+        a.n += l.qty; if (choice) a.choices.set(choice, (a.choices.get(choice) || 0) + l.qty);
+      }
+    }
+  }
+  return { live, prod, flavor, adds, boxes, pcs, sales };
+}
+function ordersHTML() {
+  const all = adm.orders; if (!all) return '<p class="fine">Loading orders…</p>';
+  const r = adm.ordRange || 'upcoming', list = all.filter((o) => ordInRange(o, r)).sort(r === 'past' || r === 'all' ? (a, b) => -ordSort(a, b) : ordSort);
+  const S = ordSummary(list), sizes = [...new Set([...S.prod.values()].flatMap((p) => [...p.v.keys()]))].sort((a, b) => (parseInt(a.replace(/\D/g, ''), 10) || 99) - (parseInt(b.replace(/\D/g, ''), 10) || 99));
+  const days = [...new Set(S.live.map((o) => o.date))].sort();
+  const st = { new: ['', 'New'], done: ['is-done', 'Picked up'], cancelled: ['is-cancel', 'Cancelled'] };
+  return `<div class="ord-tiles">
+      <div><b>${S.live.length}</b><span>order${S.live.length === 1 ? '' : 's'}</span></div>
+      <div><b>${S.boxes}</b><span>box${S.boxes === 1 ? '' : 'es'}</span></div>
+      <div><b>${S.pcs}</b><span>cookies</span></div>
+      <div><b>${peso(S.sales)}</b><span>total sales</span></div></div>
+    ${!list.length ? `<p class="pm-empty">No orders ${r === 'all' ? 'yet' : 'for this period'}.${all.length ? '' : ' New orders from the website will show up here.'}</p>` : `
+    <h3 class="ord-h">What to bake</h3>
+    <div class="ord-scroll"><table class="ord-table"><thead><tr><th>Item</th>${sizes.map((z) => `<th>${esc(z)}</th>`).join('')}<th>Total</th></tr></thead>
+      <tbody>${[...S.prod.values()].map((p) => `<tr><td>${esc(p.name)}</td>${sizes.map((z) => `<td>${p.v.get(z) ? '× ' + p.v.get(z) : '–'}</td>`).join('')}<td><b>${p.isBar ? `${p.boxes} box${p.boxes === 1 ? '' : 'es'}` : `${p.pcs} pcs`}</b></td></tr>`).join('')}</tbody></table></div>
+    ${S.flavor.size ? `<p class="ord-note"><b>Cookies per flavor</b> (Sampler boxes split into their flavors): ${[...S.flavor].filter(([, n]) => n).map(([id, n]) => `${esc(findProduct(id)?.name || id)} <b>${Math.round(n)}</b>`).join(' · ')}</p>` : ''}
+    ${S.adds.size ? `<p class="ord-note"><b>Add-ons:</b> ${[...S.adds.values()].map((a) => `${esc(a.name)} <b>× ${a.n}</b>${a.choices.size ? ` (${[...a.choices].map(([c, n]) => `${esc(c)} ${n}`).join(', ')}${a.n - [...a.choices.values()].reduce((x, y) => x + y, 0) ? `, any ${a.n - [...a.choices.values()].reduce((x, y) => x + y, 0)}` : ''})` : ''}`).join(' · ')}</p>` : ''}
+    ${days.length > 1 ? `<h3 class="ord-h">By pick-up day</h3>
+    <div class="ord-scroll"><table class="ord-table ord-table--days"><thead><tr><th>Pick-up day</th><th>Orders</th><th>Boxes</th><th>What's in them</th><th>Sales</th></tr></thead><tbody>
+      ${days.map((d) => { const D = ordSummary(S.live.filter((o) => o.date === d)); return `<tr><td><b>${niceDay(d)}</b></td><td>${D.live.length}</td><td>${D.boxes}</td><td>${[...D.prod.values()].map((p) => `${esc(p.name.replace(/ (Chocolate Chip|Cream Cheese|Revel Bars)$/, ''))} ${p.isBar ? `${p.boxes} box${p.boxes === 1 ? '' : 'es'}` : `${p.pcs} pcs`}`).join(', ')}</td><td>${peso(D.sales)}</td></tr>`; }).join('')}
+    </tbody></table></div>` : ''}
+    <h3 class="ord-h">Orders (${list.length})</h3>
+    <div class="ord-list">${list.map((o) => `<div class="ord ${st[o.status]?.[0] || ''}">
+      <div class="ord__top"><b>${esc(o.name)}</b><span class="ord__when">${niceDay(o.date)} · ${esc(o.time)}</span><span class="ord__total">${peso(o.total)}</span></div>
+      <div class="ord__meta"><span class="ord__id">${esc(o.id)}</span>${o.status !== 'new' ? `<i class="pm-tag ${o.status === 'cancelled' ? 'pm-tag--out' : ''}">${st[o.status][1]}</i>` : ''}<i class="pm-tag ${o.paid ? 'pm-tag--paid' : 'pm-tag--hidden'}">${o.paid ? 'Payment sent' : 'Not paid yet'}</i>${o.pickupBy === 'rider' ? '<i class="pm-tag">Own rider</i>' : ''}${o.gift ? `<i class="pm-tag">🎁 for ${esc(o.gift)}</i>` : ''}</div>
+      <ul class="ord__lines">${o.lines.map((l) => `<li>${l.qty}× ${esc(l.name)} <span>(${esc(l.variant)})</span></li>`).join('')}${o.tip ? `<li><span>Tip ${peso(o.tip)}</span></li>` : ''}</ul>
+      <div class="ord__contact">${esc(o.phone)}${o.social ? ` · ${esc(o.social)}` : ''}${o.notes ? `<br><i>“${esc(o.notes)}”</i>` : ''}</div>
+      <div class="ord__act">${o.status === 'new' ? `<button type="button" class="btn btn--sm" data-ost="${o.id}:done">✓ Picked up</button><button type="button" class="linkbtn" data-ost="${o.id}:cancelled">Cancel order</button>` : `<button type="button" class="linkbtn" data-ost="${o.id}:new">Undo</button>`}
+        <button type="button" class="linkbtn" data-opaid="${o.id}:${o.paid ? 0 : 1}">${o.paid ? 'Mark not paid' : 'Mark paid'}</button></div>
+    </div>`).join('')}</div>`}`;
+}
+const ordSectionHTML = () => `<section class="panel adm-sec" id="ordSec">
+    <div class="pm-head"><h2><span class="num">★</span>Orders</h2><span class="ord-tools"><button type="button" class="linkbtn" id="ordRefresh">Refresh</button><button type="button" class="btn btn--ghost btn--sm" id="ordCsv">Download for Excel</button></span></div>
+    <p class="fine">Orders placed on the website, by pick-up date, with what to bake. Cancelled orders aren't counted.</p>
+    <div class="chips ord-range" role="group" aria-label="Show orders for">${ORD_RANGES.map(([k, l]) => `<button type="button" class="chip ${(adm.ordRange || 'upcoming') === k ? 'is-on' : ''}" data-orange="${k}" aria-pressed="${(adm.ordRange || 'upcoming') === k}">${l}</button>`).join('')}</div>
+    <div id="ordBody">${ordersHTML()}</div>
+  </section>`;
+async function bindOrders() {
+  const sec = $('#ordSec'); if (!sec) return;
+  const paint = () => { $('#ordBody').innerHTML = ordersHTML(); $$('[data-orange]', sec).forEach((b) => { const on = b.dataset.orange === (adm.ordRange || 'upcoming'); b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', on); }); };
+  if (!adm.orders) {
+    let j; try { j = await adminCall('orders'); } catch { j = null; }
+    adm.orders = j?.ok ? j.orders : []; if (j && !j.ok) toast(j.error || 'Couldn’t load the orders.');
+    if (document.body.contains(sec)) paint();
+  }
+  sec.addEventListener('click', async (e) => {
+    const r = e.target.closest('[data-orange]'); if (r) { adm.ordRange = r.dataset.orange; paint(); return; }
+    const s = e.target.closest('[data-ost]'), pd = e.target.closest('[data-opaid]'); if (!s && !pd) return;
+    const [id, v] = (s || pd).dataset[s ? 'ost' : 'opaid'].split(':');
+    if (v === 'cancelled' && !confirm(`Cancel order ${id}? It won't be counted anymore. (You can undo this.)`)) return;
+    let j; try { j = await adminCall(s ? 'order-status' : 'order-paid', s ? { id, status: v } : { id, paid: v === '1' }); } catch { j = { ok: false }; }
+    if (!j.ok) { toast(j.error || 'Couldn’t save. Please try again.'); return; }
+    adm.orders = j.orders; paint(); toast(s ? { done: 'Marked as picked up ✓', cancelled: 'Order cancelled', new: 'Back to new' }[v] : 'Saved ✓');
+  });
+  $('#ordRefresh').onclick = async () => { let j; try { j = await adminCall('orders'); } catch { j = null; } if (j?.ok) { adm.orders = j.orders; paint(); toast('Orders updated ✓'); } else toast('Couldn’t load the orders.'); };
+  $('#ordCsv').onclick = () => {
+    const rows = [['Order', 'Placed', 'Pick-up date', 'Time', 'Name', 'Phone', 'IG/FB', 'Items', 'Subtotal', 'Tip', 'Total', 'Payment', 'Paid', 'Status', 'Notes']];
+    for (const o of (adm.orders || []).filter((x) => ordInRange(x, adm.ordRange || 'upcoming')).sort(ordSort)) rows.push([o.id, o.at.slice(0, 16).replace('T', ' '), o.date, o.time, o.name, o.phone, o.social, o.lines.map((l) => `${l.qty}x ${l.name} (${l.variant})`).join('; '), o.subtotal, o.tip, o.total, o.payment, o.paid ? 'yes' : 'no', o.status, o.notes]);
+    const csv = '﻿' + rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `simple-oven-orders-${adm.ordRange || 'upcoming'}-${manilaNow().date}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
 }
 
 const confirmLeave = () => window.confirm('You have unsaved changes. Leave without saving?');

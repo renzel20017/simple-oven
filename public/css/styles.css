@@ -1444,3 +1444,45 @@ body:not(.is-admin) img { -webkit-touch-callout: none; -webkit-user-drag: none; 
 .pol__cap { top: 83%; } .pol__cap--long { font-size: 5.1cqw; line-height: 1.12; }
 /* room for the taped polaroid (its full height incl. tilt) so the text + name never slide under it */
 .cnote__float { width: 33cqw; height: 25cqw; }
+/* owner page: orders summary */
+.ord-tools { display: flex; align-items: center; gap: 12px; }
+.ord-range { margin: 12px 0 14px; gap: 6px; }
+.ord-range .chip { height: 36px; padding: 0 14px; font-size: 14px; cursor: pointer; background: transparent; }
+.ord-range .chip.is-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ord-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ord-tiles > div { display: flex; flex-direction: column; padding: 10px 12px; border-radius: var(--r-sm); background: #fff; border: 1.5px solid var(--line); }
+.ord-tiles b { font-family: var(--serif); font-size: 24px; line-height: 1.1; }
+.ord-tiles span { font-size: 13px; font-weight: 600; color: var(--muted); }
+@media (max-width: 560px) { .ord-tiles { grid-template-columns: 1fr 1fr; } }
+.ord-h { margin: 20px 0 8px; font-family: var(--serif); font-size: 20px; font-weight: 600; }
+.ord-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1.5px solid var(--line); border-radius: var(--r-sm); background: #fff; }
+.ord-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.ord-table th, .ord-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ord-table th { font-size: 12.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); background: var(--paper-2); }
+.ord-table tr:last-child td { border-bottom: 0; }
+.ord-table td:first-child { font-weight: 600; }
+.ord-table--days td:nth-child(4) { white-space: normal; min-width: 220px; }
+.ord-note { margin: 10px 0 0; font-size: 14.5px; color: var(--ink-2); line-height: 1.55; }
+.ord-list { display: flex; flex-direction: column; gap: 10px; }
+.ord { padding: 12px 14px; border-radius: 14px; background: #fff; border: 1.5px solid var(--line); }
+.ord.is-done { background: rgba(47, 107, 58, .06); }
+.ord.is-cancel { opacity: .6; }
+.ord.is-cancel .ord__lines, .ord.is-cancel .ord__total { text-decoration: line-through; }
+.ord__top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.ord__top b { font-size: 16.5px; }
+.ord__when { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.ord__total { margin-left: auto; font-weight: 800; }
+.ord__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.ord__id { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pm-tag--paid { background: rgba(47, 107, 58, .14); color: var(--ok); }
+.ord__lines { margin: 8px 0 4px; padding-left: 18px; font-size: 14.5px; }
+.ord__lines span { color: var(--muted); }
+.ord__contact { font-size: 13.5px; color: var(--muted); }
+.ord__act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px; }
+.ord__act .linkbtn { font-size: 14px; }
+#ordSec .pm-head { flex-wrap: wrap; row-gap: 8px; }
+@media (max-width: 560px) {
+  .ord-tools { width: 100%; justify-content: space-between; }
+  .ord-table th, .ord-table td { padding: 8px 9px; font-size: 13.5px; }
+  .ord-table td:first-child { white-space: normal; min-width: 120px; }
+}
