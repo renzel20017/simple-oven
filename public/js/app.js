@@ -169,7 +169,7 @@ function bakeBoxHTML({ closed = false, tag = '' } = {}) {
   const cookies = pieces.filter((p) => findProduct(p.pid)?.category !== 'bars').length, bars = pieces.length - cookies;
   const fresh = lastAddedKey;
   const newIdx = new Set(pieces.map((p, i) => (fresh && p.key === fresh.key && p.k >= p.n - fresh.n ? i : -1)));
-  return `<div class="bakebox${closed ? ' is-closed is-tied' : ''}${pieces.length || closed ? '' : ' is-empty'}" aria-label="Your box: ${cookies} cookie${cookies === 1 ? '' : 's'}${bars ? `, ${bars} box${bars === 1 ? '' : 'es'} of revel bars` : ''}">
+  return `<div class="bakebox${closed ? ' is-closed is-tied' : ''}${pieces.length || closed ? '' : ' is-empty'}" aria-label="Your box: ${cookies} cookie${cookies === 1 ? '' : 's'}${bars ? `, ${bars} box${bars === 1 ? '' : 'es'} of bars` : ''}">
     <div class="bakebox__lid"><img class="bakebox__logo" src="/assets/img/logo.png" alt=""></div>
     <div class="bakebox__body">
       <div class="bakebox__tray">${shown.map((p, i) => tokenHTML(p.pid, i, newIdx.has(i))).join('')}${extra > 0 ? `<span class="tok tok--more">+${extra}</span>` : ''}${!pieces.length ? '<span class="bakebox__hint">your cookies go here</span>' : ''}</div>
@@ -471,7 +471,7 @@ function viewProduct(id) {
   const gal = p.photo ? [{ big: p.photo, sm: p.photo }, ...p.gallery.slice(1).map((k) => ({ big: img(k), sm: img(k, true) }))] : p.gallery.map((k) => ({ big: img(k), sm: img(k, true) }));
   const others = PRODUCTS.filter((x) => x.id !== p.id && x.category === p.category).slice(0, 4);
   return `<div class="view wrap">
-    <nav class="crumbs" aria-label="Breadcrumb"><a href="#/shop">Shop</a> / <a href="#/shop/${p.category}">${p.category === 'bars' ? 'Revel Bars' : 'Cookies'}</a> / <span aria-current="page">${esc(p.name)}</span></nav>
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="#/shop">Shop</a> / <a href="#/shop/${p.category}">${p.category === 'bars' ? 'Bars' : 'Cookies'}</a> / <span aria-current="page">${esc(p.name)}</span></nav>
     <div class="pd${p.soldOut ? ' pd--soldout' : ''}">
       <div class="gallery">
         <div class="gallery__main" id="galMain">${gal.length ? `<img id="galImg" src="${esc(gal[0].big)}" alt="${esc(p.name)}" fetchpriority="high">` : media(p, { sm: false })}</div>
@@ -1284,6 +1284,8 @@ function renderAdmin(box) {
     </div>
   </section>
 
+  ${admWallSections()}
+
   <section class="panel adm-sec">
     <h2><span class="num">2</span>How customers pay</h2>
     <label class="adm-item adm-item--plain"><span class="adm-item__name">Customers must pay before ordering<i>${s.requirePayment ? 'On: they send the reference no. + screenshot with the order' : 'Off: they pay after you confirm'}</i></span><input type="checkbox" class="sw" id="a-req" ${s.requirePayment ? 'checked' : ''} aria-label="Customers must pay before ordering"></label>
@@ -1406,6 +1408,7 @@ function bindAdminEvents(box) {
   $('#a-qr-x')?.addEventListener('click', () => { adm.qrImage = s.payment.qr ? 'remove' : null; rerender(); });
   $('#admSave').onclick = () => admSave(box);
   bindProducts(box);
+  bindAdminWall();
 }
 async function admSave(box, okMsg = 'Saved! Customers see the changes right away.') {
   const s = adm.s, rerender = () => { const y = scrollY; renderAdmin(box); window.scrollTo(0, y); };
@@ -1452,7 +1455,7 @@ const pmSectionHTML = () => `<section class="panel adm-sec pm" id="pmSec">
     <div class="pm-stats" id="pmStats" role="group" aria-label="Show"></div>
     <div class="pm-tools">
       <label class="pm-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input class="input" id="pmQ" type="search" placeholder="Find a product" value="${esc(pm.q)}" aria-label="Find a product"></label>
-      <select class="input" id="pmCat" aria-label="Type"><option value="all">All types</option><option value="cookies" ${pm.cat === 'cookies' ? 'selected' : ''}>Cookies</option><option value="bars" ${pm.cat === 'bars' ? 'selected' : ''}>Revel Bars</option></select>
+      <select class="input" id="pmCat" aria-label="Type"><option value="all">All types</option><option value="cookies" ${pm.cat === 'cookies' ? 'selected' : ''}>Cookies</option><option value="bars" ${pm.cat === 'bars' ? 'selected' : ''}>Bars</option></select>
     </div>
     <div id="pmList" class="pm-list"></div>
   </section>`;
@@ -1472,7 +1475,7 @@ function pmRender() {
   const n = { all: all.length, soldout: all.filter((p) => p.soldOut && !p.hidden).length, hidden: all.filter((p) => p.hidden).length };
   $('#pmStats').innerHTML = [['all', 'All products'], ['soldout', 'Sold out'], ['hidden', 'Hidden']].map(([k, l]) => `<button type="button" class="pm-stat pm-stat--${k}${pm.filter === k ? ' is-on' : ''}" data-pmf="${k}" aria-pressed="${pm.filter === k}"><b>${n[k]}</b><span>${l}</span></button>`).join('');
   const list = all.filter((p) => (pm.filter === 'all' || (pm.filter === 'soldout' ? p.soldOut && !p.hidden : p.hidden)) && (pm.cat === 'all' || p.category === pm.cat) && (!q || p.name.toLowerCase().includes(q)));
-  const groups = [['cookies', 'Cookies'], ['bars', 'Revel Bars']].map(([c, l]) => [l, list.filter((p) => p.category === c)]).filter((g) => g[1].length);
+  const groups = [['cookies', 'Cookies'], ['bars', 'Bars']].map(([c, l]) => [l, list.filter((p) => p.category === c)]).filter((g) => g[1].length);
   $('#pmList').innerHTML = groups.length ? groups.map(([l, ps]) => `<div class="pm-group"><h3>${l} <span>${ps.length}</span></h3>${ps.map(pmRowHTML).join('')}</div>`).join('')
     : `<p class="pm-empty">Nothing here. <button type="button" class="linkbtn" data-pmclear>Show all products</button></p>`;
 }
@@ -1532,7 +1535,7 @@ function pmOpen(box, id) {
     </div>
     <div class="field"><label for="pmName">Name</label><input class="input" id="pmName" maxlength="60" value="${esc(d.name)}" placeholder="e.g. Matcha White Choco"><span class="err" id="pmNameErr"></span></div>
     <div class="field"><label for="pmDesc">Description <span class="pm-count" id="pmDescN">${d.desc.length}/300</span></label><textarea class="input" id="pmDesc" rows="3" maxlength="300" placeholder="One or two short lines about the taste and what's in it">${esc(d.desc)}</textarea></div>
-    ${d.base ? '' : `<div class="field"><span class="label-like">Type</span><div class="pm-seg" role="radiogroup" aria-label="Type">${[['cookies', 'Cookie'], ['bars', 'Revel Bar']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${d.category === v}" class="${d.category === v ? 'is-on' : ''}" data-pmcat="${v}">${l}</button>`).join('')}</div></div>`}
+    ${d.base ? '' : `<div class="field"><span class="label-like">Type</span><div class="pm-seg" role="radiogroup" aria-label="Type">${[['cookies', 'Cookie'], ['bars', 'Bar']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${d.category === v}" class="${d.category === v ? 'is-on' : ''}" data-pmcat="${v}">${l}</button>`).join('')}</div></div>`}
     <div class="field"><span class="label-like">Price</span><div class="pm-prices">${d.base
       ? cur.variants.map((v) => `<label><span>${esc(v.label.replace(/ \(.*\)/, ''))}</span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="1" step="1" data-pmprice="${v.id}" value="${esc(d.prices[v.id])}"></span></label>`).join('')
       : `<label><span>${d.category === 'cookies' ? 'Box of 4' : 'Per box'}</span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="1" step="1" data-pmprice="price4" value="${esc(d.price4)}" placeholder="0"></span></label>
@@ -1656,7 +1659,229 @@ async function loadShopSettings() {
 function refreshCart() { const before = cart.items.length; cart.items = cart.items.filter((i) => findVariant(findProduct(i.pid), i.vid) && !findProduct(i.pid).soldOut); if (cart.items.length !== before) cart.save(); }
 
 
-/* ───────────── care guide (cookies + revel bars) ───────────── */
+
+/* ───────────── Photo Dump + Sweet Confessions ───────────── */
+const WALL = { data: null, at: 0 };
+async function loadWall(force) {
+  if (!force && WALL.data && Date.now() - WALL.at < 30000) return WALL.data;
+  try {
+    const r = await fetch('/api/wall', { signal: AbortSignal.timeout(8000) }); const j = await r.json();
+    if (j.ok) { WALL.data = { photos: j.photos || [], reviews: j.reviews || [] }; WALL.at = Date.now(); }
+  } catch {}
+  return WALL.data || { photos: [], reviews: [] };
+}
+const wimg = (id) => `/api/wimg?id=${encodeURIComponent(id)}`;
+const tilt = (id, max = 5) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return ((Math.abs(h) % (max * 20 + 1)) / 10 - max).toFixed(1); };
+const shortDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' }); } catch { return ''; } };
+
+// Photo Dump
+function viewPhotos() {
+  return `<div class="view wrap dump">
+    <div class="pagehead"><p class="eyebrow">Photo Dump</p><h1 class="h2">Fresh from the oven</h1>
+      <p class="lead" style="margin-top:12px">Little moments from our kitchen: new batches, packed boxes and treats on their way to you.</p></div>
+    <div class="dump__wall" id="dumpWall" aria-busy="true">${[0, 1, 2, 3].map((i) => `<figure class="pol pol--ghost" style="--r:${[-3, 2, -1, 3][i]}deg"><span class="pol__img"></span><img class="pol__frame" src="/assets/wall/polaroid.webp" alt=""></figure>`).join('')}</div>
+  </div>`;
+}
+const polHTML = (p, i) => `<figure class="pol" style="--r:${tilt(p.id, 4)}deg;--d:${Math.min(i, 12) * 70}ms">
+    <button type="button" class="pol__btn" data-pol="${i}" aria-label="Open photo${p.caption ? ': ' + esc(p.caption) : ''}">
+      <span class="pol__img"><img src="${wimg(p.id)}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async"></span>
+      <img class="pol__frame" src="/assets/wall/polaroid.webp" alt="">
+      <figcaption class="pol__cap">${p.caption ? esc(p.caption) : '&nbsp;'}<small>${shortDate(p.at)}</small></figcaption>
+    </button></figure>`;
+async function bindPhotos() {
+  const { photos } = await loadWall(), el = $('#dumpWall'); if (!el) return;
+  el.removeAttribute('aria-busy');
+  if (!photos.length) { el.innerHTML = `<figure class="pol pol--empty" style="--r:-2deg"><span class="pol__img"><span>Photos coming soon ♡</span></span><img class="pol__frame" src="/assets/wall/polaroid.webp" alt=""><figcaption class="pol__cap">the oven is still warm</figcaption></figure>`; return; }
+  el.innerHTML = photos.map(polHTML).join('');
+  el.addEventListener('click', (e) => { const b = e.target.closest('[data-pol]'); if (b) lightbox(photos.map((p) => ({ src: wimg(p.id), cap: p.caption, sub: shortDate(p.at) })), +b.dataset.pol); });
+}
+
+// big photo viewer (Photo Dump + review photos)
+function lightbox(items, start = 0) {
+  let i = start;
+  const el = document.createElement('div'); el.className = 'lb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Photo');
+  el.innerHTML = `<div class="lb__back" data-lbx></div>
+    <figure class="lb__fig"><img id="lbImg" alt=""><figcaption class="lb__cap" id="lbCap"></figcaption></figure>
+    ${items.length > 1 ? '<button type="button" class="lb__nav lb__nav--prev" data-lbgo="-1" aria-label="Previous photo">‹</button><button type="button" class="lb__nav lb__nav--next" data-lbgo="1" aria-label="Next photo">›</button>' : ''}
+    <button type="button" class="lb__x" data-lbx aria-label="Close">✕</button>
+    ${items.length > 1 ? '<span class="lb__n" id="lbN"></span>' : ''}`;
+  document.body.appendChild(el); document.documentElement.classList.add('pm-lock');
+  const last = document.activeElement;
+  const show = () => { const it = items[i]; $('#lbImg', el).src = it.src; $('#lbCap', el).innerHTML = (it.cap ? esc(it.cap) : '') + (it.sub ? `<small>${esc(it.sub)}</small>` : ''); const n = $('#lbN', el); if (n) n.textContent = `${i + 1} / ${items.length}`; };
+  const go = (d) => { i = (i + d + items.length) % items.length; show(); };
+  const close = () => { document.removeEventListener('keydown', key); el.remove(); document.documentElement.classList.remove('pm-lock'); last?.focus?.(); };
+  const key = (e) => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight' && items.length > 1) go(1); else if (e.key === 'ArrowLeft' && items.length > 1) go(-1); };
+  document.addEventListener('keydown', key);
+  el.addEventListener('click', (e) => { if (e.target.closest('[data-lbx]')) close(); const g = e.target.closest('[data-lbgo]'); if (g) go(+g.dataset.lbgo); });
+  let x0 = null; el.addEventListener('pointerdown', (e) => { x0 = e.clientX; }); el.addEventListener('pointerup', (e) => { if (x0 != null && items.length > 1 && Math.abs(e.clientX - x0) > 50) go(e.clientX < x0 ? 1 : -1); x0 = null; });
+  show(); $('.lb__x', el).focus();
+}
+
+// Sweet Confessions
+const starsHTML = (n, cls = '') => Array.from({ length: n }, (_, k) => `<img class="cnote__star${cls}" src="/assets/wall/star.webp" alt="" style="--s:${[-14, 8, -5, 12, -9][k]}deg">`).join('');
+function noteHTML(r, i) {
+  return `<article class="cnote" style="--r:${tilt(r.id, 1.6)}deg;--d:${Math.min(i, 10) * 70}ms">
+    <div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div>
+    <div class="cnote__stars" role="img" aria-label="${r.stars} out of 5 stars">${starsHTML(r.stars)}</div>
+    ${r.photo ? `<button type="button" class="cnote__photo" data-nphoto="${esc(r.id)}" aria-label="See the photo from ${esc(r.name || 'this customer')}"><img src="${wimg(r.id)}" alt="" loading="lazy"></button>` : ''}
+    <img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true">
+    <div class="cnote__body">${r.photo ? '<span class="cnote__float" aria-hidden="true"></span>' : ''}
+      <p class="cnote__text">${esc(r.text).replace(/\n/g, '<br>')}</p>
+      <p class="cnote__sig">— ${r.name ? esc(r.name) : 'Anonymous'}<small>${shortDate(r.at)}</small></p></div>
+  </article>`;
+}
+function viewConfessions() {
+  return `<div class="view wrap conf">
+    <div class="pagehead conf__head"><div><p class="eyebrow">Sweet Confessions</p><h1 class="h2">Notes from our cookie friends</h1>
+      <p class="lead" style="margin-top:12px">Had one of our treats? Tell us everything. We read every single note ♡</p></div>
+      <div class="conf__sum" id="confSum"><button type="button" class="btn" id="confWrite">Write a confession</button></div></div>
+    <div class="cnotes" id="notesWall" aria-busy="true"><p class="conf__loading">Opening the mailbox…</p></div>
+  </div>`;
+}
+async function bindConfessions() {
+  $('#confWrite').onclick = () => confessForm();
+  const { reviews } = await loadWall(), el = $('#notesWall'); if (!el) return;
+  el.removeAttribute('aria-busy');
+  if (reviews.length) {
+    const avg = reviews.reduce((s, r) => s + r.stars, 0) / reviews.length;
+    $('#confSum').insertAdjacentHTML('afterbegin', `<div class="conf__avg"><span class="conf__stars">${starsHTML(Math.round(avg), ' cnote__star--sm')}</span><b>${avg.toFixed(1)}</b><span>from ${reviews.length} confession${reviews.length === 1 ? '' : 's'}</span></div>`);
+  }
+  el.innerHTML = reviews.length ? reviews.map(noteHTML).join('')
+    : `<article class="cnote cnote--empty" style="--r:-1deg"><div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div><img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true"><div class="cnote__body"><p class="cnote__text">No confessions yet... be the very first one to tell us how your cookies were!</p><p class="cnote__sig">— Simple Oven</p></div></article>`;
+  el.addEventListener('click', (e) => { const b = e.target.closest('[data-nphoto]'); if (!b) return; const r = reviews.find((x) => x.id === b.dataset.nphoto); lightbox([{ src: wimg(r.id), cap: r.name ? `from ${r.name}` : 'from Anonymous', sub: shortDate(r.at) }]); });
+}
+function confessForm() {
+  const d = { stars: 0, text: '', name: store.get('so_conf_name', ''), anonymous: false, photo: '' };
+  const el = document.createElement('div'); el.className = 'pm-sheet cf'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'cfT');
+  document.body.appendChild(el); document.documentElement.classList.add('pm-lock');
+  const last = document.activeElement;
+  el.innerHTML = `<div class="pm-sheet__back" data-cfx></div>
+    <div class="pm-sheet__card cf__card">
+      <header class="pm-sheet__head"><h2 id="cfT">Write a confession</h2><button type="button" class="linkbtn" data-cfx>Close</button></header>
+      <form class="pm-sheet__body cf__body" id="cfForm" novalidate>
+        <div class="cnote cnote--form">
+          <div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div>
+          <div class="cnote__stars cf__stars" role="radiogroup" aria-label="Your rating">${[1, 2, 3, 4, 5].map((n) => `<button type="button" role="radio" aria-checked="false" aria-label="${n} star${n > 1 ? 's' : ''}" data-cfstar="${n}"><img class="cnote__star" src="/assets/wall/star.webp" alt="" style="--s:${[-14, 8, -5, 12, -9][n - 1]}deg"></button>`).join('')}</div>
+          <span class="cf__rate" id="cfRate">Tap a star to rate us</span>
+          <div class="cf__photo" id="cfPhoto"></div>
+          <img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true">
+          <div class="cnote__body">
+            <span class="cnote__float cf__float" id="cfFloat" hidden></span>
+            <p class="cf__dear">Dear Simple Oven,</p>
+            <label class="sr" for="cfText">Your confession</label>
+            <textarea id="cfText" class="cf__text" maxlength="400" rows="5" placeholder="I have a confession to make… I ate the whole box in one sitting."></textarea>
+            <span class="cf__count" id="cfCount">0/400</span>
+            <div class="cf__sign"><span>—</span><label class="sr" for="cfName">Your name</label><input id="cfName" class="cf__name" maxlength="40" placeholder="your name" autocomplete="given-name" value="${esc(d.name)}"></div>
+          </div>
+        </div>
+        <span class="err cf__err" id="cfErr" role="alert"></span>
+        <div class="cf__opts">
+          <label class="switchrow"><input type="checkbox" id="cfAnon"><span class="switch" aria-hidden="true"></span><span><b>Stay anonymous</b><i>Your name won't show on the note.</i></span></label>
+          <label class="btn btn--ghost btn--sm cf__add" for="cfFile"><span id="cfFileLbl">📷 Add a photo</span> <span class="opt">(optional)</span><input type="file" id="cfFile" accept="image/*" hidden></label>
+        </div>
+        <input type="text" name="website" id="cfWeb" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true">
+      </form>
+      <footer class="pm-sheet__foot"><button type="submit" form="cfForm" class="btn" id="cfSend">Send my confession ♡</button><button type="button" class="btn btn--ghost" data-cfx>Cancel</button></footer>
+    </div>`;
+  const paintStars = () => { $$('[data-cfstar]', el).forEach((b) => { const on = +b.dataset.cfstar <= d.stars; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', +b.dataset.cfstar === d.stars); }); $('#cfRate', el).textContent = d.stars ? ['', 'Hmm, okay', 'Not bad', 'Pretty good!', 'So good!', 'Obsessed!'][d.stars] : 'Tap a star to rate us'; };
+  const paintPhoto = () => { $('#cfPhoto', el).innerHTML = d.photo ? `<span class="cnote__photo"><img src="${d.photo}" alt="Your photo"></span><button type="button" class="cf__rm" id="cfRm" aria-label="Remove photo">✕</button>` : ''; $('#cfFloat', el).hidden = !d.photo; $('#cfFileLbl', el).textContent = d.photo ? '📷 Change photo' : '📷 Add a photo'; };
+  const close = (force) => { if (!force && (d.text.trim() || d.photo) && !confirm('Close without sending your confession?')) return; document.removeEventListener('keydown', key); el.remove(); document.documentElement.classList.remove('pm-lock'); last?.focus?.(); };
+  const key = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', key);
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-cfx]')) return close();
+    const s = e.target.closest('[data-cfstar]'); if (s) { d.stars = +s.dataset.cfstar; paintStars(); $('#cfErr', el).textContent = ''; }
+    if (e.target.closest('#cfRm')) { d.photo = ''; paintPhoto(); }
+  });
+  $('#cfText', el).addEventListener('input', (e) => { d.text = e.target.value; $('#cfCount', el).textContent = `${d.text.length}/400`; });
+  $('#cfName', el).addEventListener('input', (e) => { d.name = e.target.value; });
+  $('#cfAnon', el).addEventListener('change', (e) => { d.anonymous = e.target.checked; $('#cfName', el).disabled = d.anonymous; $('.cf__sign', el).classList.toggle('is-anon', d.anonymous); $('#cfName', el).placeholder = d.anonymous ? 'Anonymous' : 'your name'; });
+  $('#cfFile', el).addEventListener('change', async (e) => { const f = e.target.files?.[0]; if (!f) return; try { d.photo = await shrinkImage(f, 1200); paintPhoto(); } catch { toast('Couldn’t open that photo. Please try a JPG or PNG.'); } e.target.value = ''; });
+  $('#cfForm', el).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#cfErr', el), name = d.name.trim();
+    if (!d.stars) { err.textContent = 'Please tap the stars to rate us.'; $('[data-cfstar="5"]', el).focus(); return; }
+    if (d.text.trim().length < 3) { err.textContent = 'Please write a little something.'; $('#cfText', el).focus(); return; }
+    if (!d.anonymous && !name) { err.textContent = 'Add your name, or turn on “Stay anonymous”.'; $('#cfName', el).focus(); return; }
+    const b = $('#cfSend', el); b.disabled = true; b.textContent = 'Sending…'; err.textContent = '';
+    let j; try { const r = await fetch('/api/wall', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stars: d.stars, text: d.text.trim(), name, anonymous: d.anonymous, photo: d.photo, website: $('#cfWeb', el).value }), signal: AbortSignal.timeout(20000) }); j = await r.json(); }
+    catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
+    if (!j.ok) { b.disabled = false; b.textContent = 'Send my confession ♡'; err.textContent = j.error || Object.values(j.errors || {})[0] || 'Couldn’t send it. Please try again.'; return; }
+    if (!d.anonymous) store.set('so_conf_name', name);
+    $('.cf__body', el).outerHTML = `<div class="pm-sheet__body cf__done"><div class="cnote cnote--empty"><div class="cnote__paper" aria-hidden="true"><i class="cnote__top"></i><i class="cnote__mid"></i><i class="cnote__bot"></i></div><div class="cnote__stars">${starsHTML(d.stars)}</div><img class="cnote__clip" src="/assets/wall/clip.webp" alt="" aria-hidden="true"><div class="cnote__body"><p class="cnote__text">Thank you! Your confession is safe with us. It will appear on the page once we've read it ♡</p><p class="cnote__sig">— Simple Oven</p></div></div></div>`;
+    $('.pm-sheet__foot', el).innerHTML = '<button type="button" class="btn" data-cfx>Done</button>';
+  });
+  paintStars(); setTimeout(() => $('[data-cfstar="1"]', el)?.focus(), 40);
+}
+
+// owner page: Photo Dump + Sweet confessions
+const admWallSections = () => `
+  <section class="panel adm-sec" id="admDumpSec">
+    <div class="pm-head"><h2><span class="num">✦</span>Photo Dump</h2><label class="btn btn--sm" for="admDumpFile">+ Upload photos<input type="file" id="admDumpFile" accept="image/*" multiple hidden></label></div>
+    <p class="fine">Photos of your bakes for the Photo Dump page. Add a short caption if you like (it's written under the photo). Newest show first.</p>
+    <div id="admDump" class="adm-dump"><p class="fine">Loading…</p></div>
+  </section>
+  <section class="panel adm-sec" id="admConfSec">
+    <h2><span class="num">♡</span>Sweet confessions</h2>
+    <p class="fine">Reviews from customers. New ones wait here until you approve them, so nothing shows without your OK.</p>
+    <div id="admConf"><p class="fine">Loading…</p></div>
+  </section>`;
+const admStars = (n) => `<span class="adm-stars" aria-label="${n} out of 5">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>`;
+function admWallRender() {
+  const w = adm.wall; if (!w || !$('#admDump')) return;
+  $('#admDump').innerHTML = w.photos.length ? w.photos.map((p, i) => `<div class="adm-dump__item">
+      <a class="adm-dump__img" href="${wimg(p.id)}" target="_blank" rel="noopener"><img src="${wimg(p.id)}" alt="" loading="lazy"></a>
+      <input class="input input--sm" data-dcap="${p.id}" maxlength="80" value="${esc(p.caption)}" placeholder="Add a caption…" aria-label="Caption">
+      <div class="adm-dump__act"><button type="button" class="iconbtn" data-dmove="${p.id}:-1" ${i ? '' : 'disabled'} aria-label="Move earlier">←</button><button type="button" class="iconbtn" data-dmove="${p.id}:1" ${i < w.photos.length - 1 ? '' : 'disabled'} aria-label="Move later">→</button><button type="button" class="linkbtn adm-dump__del" data-ddel="${p.id}">Delete</button></div>
+    </div>`).join('') : '<p class="pm-empty">No photos yet. Tap “Upload photos” to add your first ones.</p>';
+  const waiting = w.reviews.filter((r) => !r.ok), live = w.reviews.filter((r) => r.ok), tab = adm.confTab || (waiting.length ? 'wait' : 'live');
+  const card = (r) => `<div class="adm-conf__item${r.ok ? '' : ' is-wait'}">
+      ${r.photo ? `<a class="adm-conf__img" href="${wimg(r.id)}" target="_blank" rel="noopener"><img src="${wimg(r.id)}" alt="Photo from the customer" loading="lazy"></a>` : ''}
+      <div class="adm-conf__txt"><div class="adm-conf__top">${admStars(r.stars)}<b>${r.name ? esc(r.name) : 'Anonymous'}</b><span class="fine">${shortDate(r.at)}</span></div>
+        <p>${esc(r.text).replace(/\n/g, '<br>')}</p>
+        <div class="adm-conf__act">${r.ok ? `<button type="button" class="btn btn--ghost btn--sm" data-rstat="${r.id}:0">Hide from page</button>` : `<button type="button" class="btn btn--sm" data-rstat="${r.id}:1">Approve &amp; show</button>`}<button type="button" class="linkbtn adm-dump__del" data-rdel="${r.id}">Delete</button></div></div>
+    </div>`;
+  $('#admConf').innerHTML = `<div class="pm-seg adm-conf__tabs" role="tablist">${[['wait', `Waiting (${waiting.length})`], ['live', `On the page (${live.length})`]].map(([k, l]) => `<button type="button" role="tab" aria-selected="${tab === k}" class="${tab === k ? 'is-on' : ''}" data-ctab="${k}">${l}</button>`).join('')}</div>
+    <div class="adm-conf__list">${(tab === 'wait' ? waiting : live).map(card).join('') || `<p class="pm-empty">${tab === 'wait' ? 'Nothing waiting. New confessions will show up here.' : 'No confessions on the page yet.'}</p>`}</div>`;
+}
+async function admWallCall(action, extra, okMsg) {
+  let j; try { j = await adminCall(action, extra); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
+  if (!j.ok) { toast(j.error || 'Couldn’t save. Please try again.'); return false; }
+  adm.wall = { photos: j.photos || adm.wall.photos, reviews: j.reviews || adm.wall.reviews }; WALL.data = null;
+  admWallRender(); if (okMsg) toast(okMsg); return true;
+}
+async function bindAdminWall() {
+  if (!$('#admDump')) return;
+  if (!adm.wall) {
+    let j; try { j = await adminCall('wall'); } catch { j = null; }
+    adm.wall = j?.ok ? { photos: j.photos || [], reviews: j.reviews || [] } : { photos: [], reviews: [] };
+    if (j && !j.ok && $('#admDump')) { $('#admDump').innerHTML = `<p class="fine">${esc(j.error || 'Couldn’t load the photos.')}</p>`; }
+  }
+  admWallRender();
+  $('#admDumpFile').addEventListener('change', async (e) => {
+    const files = [...(e.target.files || [])].slice(0, 20); e.target.value = ''; if (!files.length) return;
+    const lbl = $('#admDumpSec .pm-head .btn'); let done = 0;
+    for (const f of files) {
+      lbl.firstChild.textContent = `Uploading ${done + 1} of ${files.length}…`;
+      let image; try { image = await shrinkImage(f, 1600); } catch { toast(`Couldn’t open ${f.name}.`); continue; }
+      if (await admWallCall('gallery-add', { images: [{ image, caption: '' }] })) done++;
+    }
+    lbl.firstChild.textContent = '+ Upload photos';
+    if (done) toast(`${done} photo${done > 1 ? 's' : ''} added to the Photo Dump ✓`);
+  });
+  $('#admDumpSec').addEventListener('change', (e) => { const c = e.target.closest('[data-dcap]'); if (c) admWallCall('gallery-caption', { id: c.dataset.dcap, caption: c.value }, 'Caption saved ✓'); });
+  $('#admDumpSec').addEventListener('click', (e) => {
+    const m = e.target.closest('[data-dmove]'); if (m) { const [id, dir] = m.dataset.dmove.split(':'); admWallCall('gallery-move', { id, dir: +dir }); }
+    const d = e.target.closest('[data-ddel]'); if (d && confirm('Delete this photo from the Photo Dump?')) admWallCall('gallery-del', { id: d.dataset.ddel }, 'Photo deleted');
+  });
+  $('#admConfSec').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-ctab]'); if (t) { adm.confTab = t.dataset.ctab; admWallRender(); return; }
+    const s = e.target.closest('[data-rstat]'); if (s) { const [id, ok] = s.dataset.rstat.split(':'); admWallCall('review-status', { id, ok: ok === '1' }, ok === '1' ? 'It’s on the Sweet Confessions page ✓' : 'Hidden from the page'); }
+    const d = e.target.closest('[data-rdel]'); if (d && confirm('Delete this confession for good?')) admWallCall('review-del', { id: d.dataset.rdel }, 'Deleted');
+  });
+}
+
+/* ───────────── care guide (cookies + bars) ───────────── */
 const CARE = {
   cookies: {
     label: 'Cookies',
@@ -1674,7 +1899,7 @@ const CARE = {
     ],
   },
   bars: {
-    label: 'Revel Bars',
+    label: 'Bars',
     storage: [
       ['Room temperature', 'Up to <b>2 days</b> in an airtight container, away from sunlight and heat.'],
       ['Fridge', 'Up to <b>5 days</b>, airtight.'],
@@ -1715,6 +1940,8 @@ function route() {
     case '': html = viewHome(); break;
     case 'how': html = viewHome(); scrollTo = '#how'; break;
     case 'care': html = viewCare(b); title = 'How to store and warm up · Simple Oven'; break;
+    case 'photos': html = viewPhotos(); after = bindPhotos; title = 'Photo Dump · Simple Oven'; break;
+    case 'confessions': html = viewConfessions(); after = bindConfessions; title = 'Sweet Confessions · Simple Oven'; break;
     case 'shop': html = viewShop(b || 'all'); title = 'Shop · Simple Oven'; break;
     case 'product': html = viewProduct(b); after = () => bindProduct(b); title = `${findProduct(b)?.name || 'Product'} · Simple Oven`; break;
     case 'cart': html = viewCart(); after = renderCart; title = 'Your cart · Simple Oven'; break;

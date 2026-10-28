@@ -56,6 +56,8 @@ const routes = {
   '/api/admin': await import('./functions/api/admin.js'),
   '/api/qr': await import('./functions/api/qr.js'),
   '/api/pimg': await import('./functions/api/pimg.js'),
+  '/api/wall': await import('./functions/api/wall.js'),
+  '/api/wimg': await import('./functions/api/wimg.js'),
 };
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.woff2': 'font/woff2' };
 

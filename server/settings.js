@@ -3,6 +3,7 @@
 // If KV isn't set up yet, everything falls back to the values in public/js/products.js.
 import { cleanSettings, defaultSettings, applySettings, BASE_PRODUCTS } from '../public/js/products.js';
 import { json, readJson, rateLimiter, originAllowed } from './lib.js';
+import { wallAdmin } from './wall.js';
 
 const KEY = 'settings';
 const QR_KEY = 'gcash-qr';
@@ -48,6 +49,7 @@ export async function handleAdmin(request, env) {
   try { body = await readJson(request, 12 * 1024 * 1024); } catch { return json(400, { ok: false, error: 'That upload is too large. Please use a smaller QR image.' }); }
   if (!(await passwordOk(env, body?.password))) { fails.hit(ip); return json(401, { ok: false, error: 'Wrong password.' }); }
 
+  if (/^(wall$|gallery-|review-)/.test(String(body.action))) return wallAdmin(body, env);
   if (body.action === 'login') {
     const s = await loadSettings(env, { fresh: true });
     return json(200, { ok: true, settings: s, storage: !!env.SETTINGS });
