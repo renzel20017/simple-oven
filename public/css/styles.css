@@ -1393,3 +1393,19 @@ html.pm-lock { overflow: hidden; }
 .steps .note p { font-family: 'Special Elite', 'Courier New', monospace; font-size: 15.5px; line-height: 1.6; color: #2c2621; }
 @media (max-width: 1060px) { .steps--4 { grid-template-columns: repeat(2, 1fr); row-gap: 34px; } }
 @media (max-width: 760px) { .steps--4 { grid-template-columns: 1fr; } }
+/* make it harder to save photos: no long-press "Save image" (iPhone), no dragging photos out */
+body:not(.is-admin) img { -webkit-touch-callout: none; -webkit-user-drag: none; user-select: none; -webkit-user-select: none; }
+/* owner page: add-on editor */
+.ao-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.ao { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; }
+.ao.is-off { background: var(--paper-2); }
+.ao.is-off .ao__name .input { color: var(--muted); }
+.ao__top { display: flex; align-items: center; gap: 12px; }
+.ao__name { flex: 1; min-width: 0; }
+.ao__name .input { font-weight: 700; min-height: 46px; }
+.ao__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ao__row label, .ao__choices { display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.ao__row .input, .ao__choices .input { min-height: 44px; min-width: 0; }
+.ao__choices .opt { font-weight: 400; color: var(--muted); }
+.ao .adm-dump__del { align-self: flex-start; margin: 0; }
+@media (max-width: 560px) { .ao__row { grid-template-columns: 1fr 1fr; } .ao__row label:last-child { grid-column: 1 / -1; } }

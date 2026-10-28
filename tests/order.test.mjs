@@ -52,7 +52,7 @@ assert.equal(earliestDate(), addDays(today, 2), 'cut-off time pushes earliest da
 assert.equal(cleanSettings({ pickup: { mapUrl: 'javascript:alert(1)' } }).pickup.mapUrl.startsWith('https://'), true, 'map link must be https');
 assert.ok(validateOrder({ ...base, social: '', items: one }).errors.social, 'IG/FB required');
 // owner-set prices
-applySettings({ ...defaultSettings(), requirePayment: false, prices: { 'brown-butter': { '4': 400 } }, addonPrices: { ribbon: 15 } });
+applySettings({ ...defaultSettings(), requirePayment: false, prices: { 'brown-butter': { '4': 400 } }, addons: [{ id: 'wrap', name: 'Individually packed', price: 5, price8: 10, for: 'cookies' }, { id: 'ribbon', name: 'Ribbon', price: 15, for: 'all' }] });
 r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '4', qty: 1, ribbon: '' }] });
 assert.equal(r.order.lines[0].total, 415, 'owner prices used by server');
 applySettings(defaultSettings());
@@ -70,6 +70,23 @@ assert.deepEqual(r.errors, {});
 assert.equal(r.order.lines[0].total, (740 + 10 + 10) * 2, 'wrap ₱10 for 8pcs + ribbon ₱10');
 assert.equal(r.order.lines[1].total, 580 + 10, 'bars: no wrap, ribbon only');
 assert.match(r.order.lines[0].variant, /Individually packed · Ribbon/);
+// older saved settings (no add-on list yet) keep their prices + ribbon colors
+assert.equal(cleanSettings({ addonPrices: { wrap4: 6, wrap8: 12, ribbon: 20 }, ribbonColors: ['Red'] }).addons.find((x) => x.id === 'ribbon').price, 20, 'legacy ribbon price migrates');
+assert.deepEqual(cleanSettings({ ribbonColors: ['Red', 'Gold'] }).addons.find((x) => x.id === 'ribbon').choices, ['Red', 'Gold'], 'legacy colors migrate');
+// owner-made add-ons: new one, edited one, one switched off
+applySettings({ ...defaultSettings(), requirePayment: false, addons: [
+  { id: 'wrap', name: 'Individually packed', price: 5, price8: 10, for: 'cookies', on: false },
+  { id: 'ribbon', name: 'Satin ribbon', price: 12, for: 'all', choices: ['Red', 'Gold'] },
+  { id: 'a-card', name: 'Greeting card', price: 25, for: 'all' },
+  { id: 'a-ice', name: 'Ice pack', price: 15, for: 'bars' }] });
+r = validateOrder({ ...base, items: [{ pid: 'brown-butter', vid: '4', qty: 1, adds: { wrap: '', ribbon: 'Purple', 'a-card': '', 'a-ice': '', 'a-fake': '' } }, { pid: 'dark-chocolate-revel', vid: 'box', qty: 1, adds: { 'a-ice': '', ribbon: 'Gold' } }] });
+assert.deepEqual(r.errors, {});
+assert.equal(r.order.lines[0].total, 380 + 12 + 25, 'off/unknown/wrong-kind add-ons ignored');
+assert.match(r.order.lines[0].variant, /Satin ribbon \(any\) · Greeting card/);
+assert.equal(r.order.lines[1].total, 580 + 12 + 15, 'bar-only add-on on bars');
+assert.match(r.order.lines[1].variant, /Satin ribbon \(Gold\) · Ice pack/);
+// pick-up times always earliest → latest
+assert.deepEqual(cleanSettings({ pickupTimes: ['Evening (5pm – 8pm)', 'Morning (9am – 12nn)', 'Afternoon (12nn – 5pm)', '7:30am'] }).pickupTimes, ['7:30am', 'Morning (9am – 12nn)', 'Afternoon (12nn – 5pm)', 'Evening (5pm – 8pm)'], 'times sorted');
 applySettings({ ...defaultSettings(), payment: { gcashName: 'A', gcashNumber: '0917 000 0000' } });
 r = validateOrder({ ...base, payRef: '', proof: '', items: one });
 assert.ok(r.errors.proof && !r.errors.payRef, 'pay-first: screenshot required, no reference needed');

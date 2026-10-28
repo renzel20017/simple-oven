@@ -201,15 +201,19 @@ export function earliestDate(now = manilaNow()) {
 export const latestDate = (now = manilaNow()) => addDays(now.date, SHOP.maxAheadDays || 60);
 
 // ── Owner settings (saved from /#/admin). Same rules on the website and on the order server. ──
-export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order'];
+export const settingsKeys = ['soldOut', 'closedDates', 'closedWeekdays', 'openDates', 'pickupTimes', 'minLeadDays', 'orderCutoff', 'maxAheadDays', 'pickup', 'notice', 'payment', 'requirePayment', 'ribbonColors', 'tips', 'prices', 'addonPrices', 'badges', 'names', 'descs', 'extraProducts', 'hidden', 'photos', 'order', 'addons'];
 export const PAY_FIELDS = ['gcashName', 'gcashNumber', 'bankName', 'bankAccountName', 'bankAccountNumber'];
 export const paymentReady = (p = SHOP.payment) => !!(p && (p.gcashNumber || p.bankAccountNumber));
 export const mustPayFirst = () => !!SHOP.requirePayment && paymentReady();
 // ── Add-ons (prices in pesos). The server re-checks these too. ──
-export const ADDONS = {
-  wrap: { label: 'Individually packed', price: { '4': 5, '8': 10 } }, // cookies only, per box
-  ribbon: { label: 'Ribbon', price: 10 },                              // per box
-};
+// Add-ons are a list the owner manages on the owner page (settings.addons).
+//   price  = per box;  price8 = optional different price for a box of 8
+//   for    = 'all' | 'cookies' | 'bars';  choices = optional list (e.g. ribbon colors)
+export const DEFAULT_ADDONS = [
+  { id: 'wrap', name: 'Individually packed', price: 5, price8: 10, for: 'cookies', choices: [], on: true },
+  { id: 'ribbon', name: 'Ribbon', price: 10, price8: null, for: 'all', choices: [], on: true },
+];
+export const ADDONS = DEFAULT_ADDONS.map((a) => ({ ...a, choices: [...a.choices] })); // live list (filled from the owner's settings)
 // built-in products (the owner can rename them); products the owner adds are stored in settings.extraProducts
 export const BASE_PRODUCTS = PRODUCTS.slice();
 export const BASE_TEXT = Object.fromEntries(PRODUCTS.map((p) => [p.id, { name: p.name, short: p.short, desc: p.desc }]));
@@ -217,11 +221,22 @@ export const isCustomId = (id) => /^c-[a-z0-9]{4,12}$/.test(String(id));
 const DEFAULTS = JSON.parse(JSON.stringify({ ...SHOP, names: {}, descs: {}, extraProducts: [], hidden: {}, photos: {}, order: [], soldOut: Object.fromEntries(PRODUCTS.map((p) => [p.id, !!p.soldOut])),
   prices: Object.fromEntries(PRODUCTS.map((p) => [p.id, Object.fromEntries(p.variants.map((v) => [v.id, v.price]))])),
   badges: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.badge || ''])),
-  addonPrices: { wrap4: ADDONS.wrap.price['4'], wrap8: ADDONS.wrap.price['8'], ribbon: ADDONS.ribbon.price } }));
+  addons: DEFAULT_ADDONS, addonPrices: { wrap4: 5, wrap8: 10, ribbon: 10 } }));
 export function defaultSettings() {
   const d = JSON.parse(JSON.stringify(DEFAULTS));
   return Object.fromEntries(settingsKeys.map((k) => [k, d[k]]));
 }
+// minutes after midnight of the first time in a label like "Morning (9am – 12nn)", "1:30 PM", "17:00" (null if none)
+export function timeKey(label) {
+  const m = /(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?|nn|noon|mn|midnight)?/i.exec(String(label));
+  if (!m) return /noon/i.test(label) ? 720 : /midnight/i.test(label) ? 0 : null;
+  let h = +m[1]; const min = +(m[2] || 0), suf = (m[3] || '').toLowerCase().replace(/\./g, '');
+  if (h > 23 || min > 59) return null;
+  if (suf === 'pm' && h < 12) h += 12; else if ((suf === 'am' || suf === 'mn' || suf === 'midnight') && h === 12) h = 0; else if ((suf === 'nn' || suf === 'noon')) h = 12;
+  return h * 60 + min;
+}
+// pick-up times always earliest → latest (labels without a time keep their place at the end)
+export const sortTimes = (list) => list.map((t, i) => ({ t, i, k: timeKey(t) })).sort((a, b) => (a.k ?? 1e9) - (b.k ?? 1e9) || a.i - b.i).map((x) => x.t);
 const isDs = (x) => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x);
 const str = (x, max) => String(x ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, max);
 // cleans anything coming from storage or the owner page; missing/broken values fall back to the defaults
@@ -232,6 +247,7 @@ export function cleanSettings(raw) {
   for (const k of ['closedDates', 'openDates']) if (Array.isArray(r[k])) out[k] = [...new Set(r[k].filter(isDs))].sort().slice(0, 400);
   if (Array.isArray(r.closedWeekdays)) out.closedWeekdays = [...new Set(r.closedWeekdays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort();
   if (Array.isArray(r.pickupTimes)) { const t = [...new Set(r.pickupTimes.map((x) => str(x, 40)).filter(Boolean))].slice(0, 20); if (t.length) out.pickupTimes = t; }
+  out.pickupTimes = sortTimes(out.pickupTimes);
   if (r.minLeadDays !== undefined && Number.isFinite(+r.minLeadDays)) out.minLeadDays = Math.min(14, Math.max(0, Math.round(+r.minLeadDays)));
   if (r.maxAheadDays !== undefined && Number.isFinite(+r.maxAheadDays)) out.maxAheadDays = Math.min(180, Math.max(3, Math.round(+r.maxAheadDays)));
   if (typeof r.orderCutoff === 'string') out.orderCutoff = /^([01]\d|2[0-3]):[0-5]\d$/.test(r.orderCutoff) ? r.orderCutoff : '';
@@ -269,6 +285,21 @@ export function cleanSettings(raw) {
   if (r.hidden && typeof r.hidden === 'object') for (const p of BASE_PRODUCTS) if (r.hidden[p.id]) out.hidden[p.id] = true;
   if (r.photos && typeof r.photos === 'object') for (const p of BASE_PRODUCTS) if (ver(r.photos[p.id])) out.photos[p.id] = ver(r.photos[p.id]);
   if (Array.isArray(r.order)) out.order = [...new Set(r.order.map(String).filter((id) => /^[a-z0-9-]{1,40}$/.test(id)))].slice(0, 80);
+  // add-ons: the owner's list, or (older settings) built from the old fixed prices + ribbon colors
+  if (Array.isArray(r.addons)) {
+    const seen = new Set();
+    out.addons = r.addons.slice(0, 12).map((a) => {
+      if (!a || typeof a !== 'object') return null;
+      const id = String(a.id || ''); if (!/^[a-z0-9-]{1,20}$/.test(id) || seen.has(id)) return null; seen.add(id);
+      const name = str(a.name, 40), price = money(a.price, 0, 10000); if (!name || price == null) return null;
+      return { id, name, price, price8: a.price8 === '' || a.price8 == null ? null : money(a.price8, 0, 10000), for: ['cookies', 'bars'].includes(a.for) ? a.for : 'all',
+        choices: Array.isArray(a.choices) ? [...new Set(a.choices.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20) : [], on: a.on !== false };
+    }).filter(Boolean);
+  } else {
+    out.addons = JSON.parse(JSON.stringify(DEFAULT_ADDONS));
+    const ap = out.addonPrices; out.addons[0].price = ap.wrap4; out.addons[0].price8 = ap.wrap8; out.addons[1].price = ap.ribbon;
+    if (Array.isArray(r.ribbonColors)) out.addons[1].choices = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
+  }
   if (Array.isArray(r.ribbonColors)) out.ribbonColors = [...new Set(r.ribbonColors.map((x) => str(x, 30)).filter(Boolean))].slice(0, 20);
   return out;
 }
@@ -300,7 +331,7 @@ export function applySettings(raw) {
   }
   // menu order (owner can move products up/down); hidden products are left off the menu entirely
   PRODUCTS.length = 0; PRODUCTS.push(...productOrder(s).map((id) => all[id]).filter((p) => p && !p.hidden));
-  ADDONS.wrap.price['4'] = s.addonPrices.wrap4; ADDONS.wrap.price['8'] = s.addonPrices.wrap8; ADDONS.ribbon.price = s.addonPrices.ribbon;
+  ADDONS.length = 0; ADDONS.push(...s.addons.map((a) => ({ ...a, choices: [...a.choices] })));
   return s;
 }
 export function nextOpenDates(fromDs, count = 6, maxLook = 60) {
@@ -311,18 +342,26 @@ export function nextOpenDates(fromDs, count = 6, maxLook = 60) {
 export const findZone = (id) => SHOP.deliveryZones.find((z) => z.id === id);
 export const zoneText = (z) => (!z ? '' : z.min == null ? 'We\'ll quote you' : `${peso(z.min)}–${peso(z.max)}`);
 
-export const canWrap = (p, v) => !!p && p.category === 'cookies' && ADDONS.wrap.price[v?.id] != null;
-export function addonPrice(p, v, a = {}) {
-  let x = 0;
-  if (a.wrap && canWrap(p, v)) x += ADDONS.wrap.price[v.id];
-  if (a.ribbon != null && a.ribbon !== false) x += ADDONS.ribbon.price;
-  return x;
+// add-ons a product can have (switched on, and meant for its kind)
+export const addonsFor = (p) => (p ? ADDONS.filter((a) => a.on && (a.for === 'all' || a.for === p.category)) : []);
+export const addonUnit = (a, v) => (v?.id === '8' && a.price8 != null ? a.price8 : a.price);
+// a cart line's chosen add-ons → { addonId: choice } ('' = no preference). Understands older carts ({ wrap, ribbon }).
+export function lineAdds(p, v, line = {}) {
+  const raw = line.adds && typeof line.adds === 'object' ? { ...line.adds } : {};
+  if (!line.adds) { if (line.wrap) raw.wrap = ''; if (line.ribbon != null && line.ribbon !== false) raw.ribbon = line.ribbon; }
+  const out = {};
+  for (const a of addonsFor(p)) {
+    if (!(a.id in raw) || raw[a.id] == null || raw[a.id] === false) continue;
+    const c = String(raw[a.id] === true ? '' : raw[a.id]).trim().slice(0, 30);
+    out[a.id] = a.choices.includes(c) ? c : '';
+  }
+  return out;
 }
-export function addonText(p, v, a = {}) {
-  const t = [];
-  if (a.wrap && canWrap(p, v)) t.push(ADDONS.wrap.label);
-  if (a.ribbon != null && a.ribbon !== false) t.push(`Ribbon (${a.ribbon || 'our choice'})`);
-  return t.join(' · ');
+export const canWrap = (p) => addonsFor(p).some((a) => a.id === 'wrap'); // (kept for older code)
+export function addonPrice(p, v, line = {}) { const ad = lineAdds(p, v, line); return addonsFor(p).reduce((x, a) => x + (a.id in ad ? addonUnit(a, v) : 0), 0); }
+export function addonText(p, v, line = {}) {
+  const ad = lineAdds(p, v, line);
+  return addonsFor(p).filter((a) => a.id in ad).map((a) => (a.choices.length ? `${a.name} (${ad[a.id] || 'any'})` : a.name)).join(' · ');
 }
 
 export const MAX_TIP = 5000;

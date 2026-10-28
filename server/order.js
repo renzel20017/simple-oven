@@ -1,7 +1,7 @@
 // Order logic for POST /api/order (used by functions/api/order.js).
 // Re-checks every field, recomputes prices from public/js/products.js, rejects sold-out items
 // and closed dates, emails the order via Resend, then logs it to Google Sheets (optional).
-import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst, addonPrice, addonText, canWrap, cleanTip } from '../public/js/products.js';
+import { SHOP, findProduct, findVariant, findZone, isClosedDate, earliestDate, latestDate, mustPayFirst, addonPrice, addonText, lineAdds, cleanTip } from '../public/js/products.js';
 import { useSettings, refUsed, rememberRef } from './settings.js';
 import { esc, clean, peso, todayManila, json, readJson, rateLimiter, originAllowed, sendResend, logToSheet, emailConfigured } from './lib.js';
 
@@ -76,18 +76,15 @@ export function validateOrder(body) {
     const q = Math.floor(Number(it?.qty));
     if (!p || !v || !Number.isFinite(q) || q < 1) continue;
     if (p.soldOut) { soldOut.push(p.name); continue; }
-    const wrap = !!it.wrap && canWrap(p, v);
-    let ribbon = it.ribbon == null || it.ribbon === false ? null : clean(it.ribbon, 30);
-    if (ribbon && SHOP.ribbonColors.length && !SHOP.ribbonColors.includes(ribbon)) ribbon = '';
-    if (ribbon && !SHOP.ribbonColors.length) ribbon = '';
-    const k = JSON.stringify([p.id, v.id, wrap, ribbon]);
+    const adds = lineAdds(p, v, it); // only add-ons that exist, are on, and fit this product
+    const k = JSON.stringify([p.id, v.id, Object.keys(adds).sort().map((id) => [id, adds[id]])]);
     merged.set(k, Math.min(SHOP.maxQtyPerItem, (merged.get(k) || 0) + q));
   }
   const lines = [...merged].map(([k, qty]) => {
-    const [pid, vid, wrap, ribbon] = JSON.parse(k);
-    const p = findProduct(pid), v = findVariant(p, vid), a = { wrap, ribbon };
+    const [pid, vid, pairs] = JSON.parse(k);
+    const p = findProduct(pid), v = findVariant(p, vid), a = { adds: Object.fromEntries(pairs) };
     const price = v.price + addonPrice(p, v, a), extra = addonText(p, v, a);
-    return { pid, vid, wrap, ribbon, name: p.name, variant: v.label + (extra ? ' · ' + extra : ''), price, qty, total: price * qty };
+    return { pid, vid, adds: a.adds, name: p.name, variant: v.label + (extra ? ' · ' + extra : ''), price, qty, total: price * qty };
   });
   if (soldOut.length) errors.items = `Sorry, ${soldOut.join(', ')} just sold out. Please remove it from your cart.`;
   else if (!lines.length) errors.items = 'Your cart is empty.';

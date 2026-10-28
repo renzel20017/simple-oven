@@ -1,4 +1,4 @@
-import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, canWrap, addonPrice, addonText, cleanTip, BASE_PRODUCTS, BASE_TEXT, productOrder } from './products.js';
+import { SHOP, PRODUCTS, CATEGORIES, findProduct, findVariant, fromPrice, peso, addDays, isClosedDate, nextOpenDates, findZone, zoneText, earliestDate, latestDate, applySettings, cleanSettings, defaultSettings, manilaNow, weekdayOf, mustPayFirst, paymentReady, PAY_FIELDS, ADDONS, addonsFor, addonUnit, lineAdds, addonPrice, addonText, cleanTip, BASE_PRODUCTS, BASE_TEXT, productOrder } from './products.js';
 import { cookieSVG, barSVG } from './cookies.js';
 try { const c = JSON.parse(localStorage.getItem('so_settings') || 'null'); if (c && !window.SO_DEMO) applySettings(c); } catch {}
 
@@ -53,14 +53,17 @@ function media(p, { sm = true, cls = 'photo', eager = false } = {}) {
 }
 
 /* ───────────────────────── cart ───────────────────────── */
-const sameLine = (a, b) => a.pid === b.pid && a.vid === b.vid && !!a.wrap === !!b.wrap && (a.ribbon ?? null) === (b.ribbon ?? null);
+const addsKey = (a) => JSON.stringify(Object.keys(a || {}).sort().map((k) => [k, a[k]]));
+const sameLine = (a, b) => a.pid === b.pid && a.vid === b.vid && addsKey(a.adds) === addsKey(b.adds);
+// older carts stored { wrap, ribbon }; now every line keeps { adds: { addonId: choice } }
+const toAdds = (i) => { if (i.adds && typeof i.adds === 'object') return i; const adds = {}; if (i.wrap) adds.wrap = ''; if (i.ribbon != null && i.ribbon !== false) adds.ribbon = i.ribbon; const { wrap, ribbon, ...rest } = i; return { ...rest, adds }; };
 const cart = {
-  items: store.get('so_cart', []).filter((i) => findVariant(findProduct(i.pid), i.vid) && !findProduct(i.pid).soldOut),
+  items: store.get('so_cart', []).map(toAdds).filter((i) => findVariant(findProduct(i.pid), i.vid) && !findProduct(i.pid).soldOut),
   save() { store.set('so_cart', this.items); updateCount(); },
   add(pid, vid, qty = 1) {
     const it = this.items.find((i) => sameLine(i, { pid, vid }));
     if (it) it.qty = Math.min(SHOP.maxQtyPerItem, it.qty + qty);
-    else this.items.push({ pid, vid, qty: Math.min(SHOP.maxQtyPerItem, qty), wrap: false, ribbon: null });
+    else this.items.push({ pid, vid, qty: Math.min(SHOP.maxQtyPerItem, qty), adds: {} });
     this.save();
   },
   setAt(idx, qty) {
@@ -68,9 +71,9 @@ const cart = {
     if (qty <= 0) this.items.splice(idx, 1); else it.qty = Math.min(SHOP.maxQtyPerItem, qty);
     this.save();
   },
-  setAddons(idx, a) { // change add-ons on one line, merging with an identical line if there is one
+  setAddons(idx, adds) { // change add-ons on one line, merging with an identical line if there is one
     const it = this.items[idx]; if (!it) return;
-    Object.assign(it, a);
+    it.adds = adds;
     const twin = this.items.findIndex((x, k) => k !== idx && sameLine(x, it));
     if (twin >= 0) { this.items[twin].qty = Math.min(SHOP.maxQtyPerItem, this.items[twin].qty + it.qty); this.items.splice(idx, 1); }
     this.save();
@@ -218,8 +221,7 @@ function closeDrawer() {
   setTimeout(() => { d.hidden = true; d.classList.remove('closing'); document.body.style.overflow = ''; lastFocus?.focus?.(); }, reduceMotion ? 0 : 280);
 }
 function lineHTML(l) {
-  const colors = SHOP.ribbonColors || [];
-  const wrapOk = canWrap(l.p, l.v), hasRibbon = l.ribbon != null;
+  const list = addonsFor(l.p), ad = lineAdds(l.p, l.v, l);
   return `<li class="line">
     <a class="line__img" href="#/product/${l.p.id}" tabindex="-1" aria-hidden="true">${media(l.p)}</a>
     <div>
@@ -233,11 +235,10 @@ function lineHTML(l) {
         </div>
         <button type="button" class="line__rm" data-rm data-i="${l.idx}">Remove</button>
       </div>
-      <div class="addons" role="group" aria-label="Add-ons for ${esc(l.p.name)}">
-        ${wrapOk ? `<label class="addon"><input type="checkbox" data-addon="wrap" data-i="${l.idx}" ${l.wrap ? 'checked' : ''}><span>Individually packed <b>+${peso(ADDONS.wrap.price[l.v.id])}</b></span></label>` : ''}
-        <label class="addon"><input type="checkbox" data-addon="ribbon" data-i="${l.idx}" ${hasRibbon ? 'checked' : ''}><span>Ribbon <b>+${peso(ADDONS.ribbon.price)}</b></span></label>
-        ${hasRibbon && colors.length ? `<select class="addon__color" data-addon="color" data-i="${l.idx}" aria-label="Ribbon color">${[''].concat(colors).map((c) => `<option value="${esc(c)}" ${c === (l.ribbon || '') ? 'selected' : ''}>${c ? esc(c) : 'Any color'}</option>`).join('')}</select>` : ''}
-      </div>
+      ${list.length ? `<div class="addons" role="group" aria-label="Add-ons for ${esc(l.p.name)}">
+        ${list.map((a) => `<label class="addon"><input type="checkbox" data-addon="on" data-aid="${esc(a.id)}" data-i="${l.idx}" ${a.id in ad ? 'checked' : ''}><span>${esc(a.name)} <b>+${peso(addonUnit(a, l.v))}</b></span></label>
+        ${a.id in ad && a.choices.length ? `<select class="addon__color" data-addon="choice" data-aid="${esc(a.id)}" data-i="${l.idx}" aria-label="${esc(a.name)}: choose one">${[''].concat(a.choices).map((c) => `<option value="${esc(c)}" ${c === ad[a.id] ? 'selected' : ''}>${c ? esc(c) : 'No preference'}</option>`).join('')}</select>` : ''}`).join('')}
+      </div>` : ''}
     </div>
     <div class="line__total">${peso(l.total)}</div>
   </li>`;
@@ -261,9 +262,9 @@ function renderDrawer() {
 document.addEventListener('change', (e) => {
   const a = e.target.closest('[data-addon]'); if (!a) return;
   const idx = +a.dataset.i, it = cart.items[idx]; if (!it) return;
-  if (a.dataset.addon === 'wrap') cart.setAddons(idx, { wrap: a.checked });
-  else if (a.dataset.addon === 'ribbon') cart.setAddons(idx, { ribbon: a.checked ? '' : null });
-  else cart.setAddons(idx, { ribbon: a.value });
+  const p = findProduct(it.pid), adds = { ...lineAdds(p, findVariant(p, it.vid), it) }, id = a.dataset.aid;
+  if (a.dataset.addon === 'on') { if (a.checked) adds[id] = ''; else delete adds[id]; } else adds[id] = a.value;
+  cart.setAddons(idx, adds);
   refreshCartViews();
 });
 document.addEventListener('click', (e) => {
@@ -830,7 +831,7 @@ async function submitOrder(d) {
   // the same key is reused if the customer retries, so the server can ignore duplicates
   let key = sstore.get('so_idem', null);
   if (!key) { key = (crypto.randomUUID?.() || String(Date.now()) + Math.random()); sstore.set('so_idem', key); }
-  const payload = { ...d, gift: d.gift === 'on', giftHidePrices: d.giftHidePrices === 'on', tip: currentTip(), items: cart.items.map(({ pid, vid, qty, wrap, ribbon }) => ({ pid, vid, qty, wrap: !!wrap, ribbon: ribbon ?? null })), idempotencyKey: key };
+  const payload = { ...d, gift: d.gift === 'on', giftHidePrices: d.giftHidePrices === 'on', tip: currentTip(), items: cart.items.map((i) => { const p = findProduct(i.pid); return { pid: i.pid, vid: i.vid, qty: i.qty, adds: lineAdds(p, findVariant(p, i.vid), i) }; }), idempotencyKey: key };
   try {
     let data;
     if (window.SO_DEMO) { await new Promise((r) => setTimeout(r, 900)); data = demoOrder(payload); }
@@ -1276,13 +1277,20 @@ function renderAdmin(box) {
 
   ${pmSectionHTML()}
 
-  <section class="panel adm-sec">
-    <h2><span class="num">+</span>Add-on prices</h2>
-    <div class="adm-price__vars adm-addons">
-      <label><span>Individually packed · 4 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap4" value="${s.addonPrices.wrap4}"></span></label>
-      <label><span>Individually packed · 8 pcs</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="wrap8" value="${s.addonPrices.wrap8}"></span></label>
-      <label><span>Ribbon (per box)</span><span class="adm-peso"><i>₱</i><input class="input input--sm" type="number" inputmode="numeric" min="0" step="1" data-addonprice="ribbon" value="${s.addonPrices.ribbon}"></span></label>
-    </div>
+  <section class="panel adm-sec" id="aoSec">
+    <div class="pm-head"><h2><span class="num">+</span>Add-ons</h2><button type="button" class="btn btn--sm" id="aoAdd" ${s.addons.length >= 12 ? 'disabled' : ''}>+ Add add-on</button></div>
+    <p class="fine">Extras customers can tick for each box in their cart, like a ribbon or a greeting card. Press Save at the bottom when you're done.</p>
+    <div class="ao-list">${s.addons.map((a, i) => `<div class="ao${a.on ? '' : ' is-off'}">
+      <div class="ao__top"><label class="ao__name"><span class="sr">Add-on name</span><input class="input" data-ao="${i}:name" maxlength="40" value="${esc(a.name)}" placeholder="e.g. Greeting card"></label>
+        <label class="pm-sw" title="${a.on ? 'Customers can choose it' : 'Hidden from customers'}"><input type="checkbox" class="sw" data-ao="${i}:on" ${a.on ? 'checked' : ''} aria-label="${esc(a.name || 'Add-on')} available"></label></div>
+      <div class="ao__row">
+        <label><span>Price per box</span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="0" step="1" data-ao="${i}:price" value="${a.price ?? ''}" placeholder="0"></span></label>
+        ${a.for !== 'bars' ? `<label><span>Box of 8 <span class="opt">(optional)</span></span><span class="pm-peso"><i>₱</i><input class="input" type="number" inputmode="numeric" min="0" step="1" data-ao="${i}:price8" value="${a.price8 ?? ''}" placeholder="same"></span></label>` : ''}
+        <label><span>Show on</span><select class="input" data-ao="${i}:for">${[['all', 'All products'], ['cookies', 'Cookies only'], ['bars', 'Bars only']].map(([v, l]) => `<option value="${v}" ${a.for === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      </div>
+      <label class="ao__choices"><span>Choices customers pick from <span class="opt">(optional, separate with commas)</span></span><input class="input" data-ao="${i}:choices" maxlength="400" value="${esc(a.choices.join(', '))}" placeholder="e.g. Red, Pink, Gold"></label>
+      <button type="button" class="linkbtn adm-dump__del" data-aodel="${i}">Delete this add-on</button>
+    </div>`).join('') || '<p class="pm-empty">No add-ons yet.</p>'}</div>
   </section>
 
   ${admWallSections()}
@@ -1318,11 +1326,6 @@ function renderAdmin(box) {
     <button type="button" class="btn btn--ghost btn--sm" id="admAddTime" ${s.pickupTimes.length >= 20 ? 'disabled' : ''}>+ Add a time</button>
   </section>
 
-  <section class="panel adm-sec">
-    <h2><span class="num">✿</span>Ribbon colors</h2>
-    <p class="fine">Colors customers can choose for the ₱${ADDONS.ribbon.price} ribbon add-on. Separate with commas. Leave empty and customers get "any color".</p>
-    <input class="input" id="a-ribbons" value="${esc((s.ribbonColors || []).join(', '))}" maxlength="400" placeholder="e.g. Red, Pink, White, Gold">
-  </section>
 
   <section class="panel adm-sec">
     <h2><span class="num">₱</span>Tips</h2>
@@ -1398,8 +1401,17 @@ function bindAdminEvents(box) {
   $('#a-notice').addEventListener('input', (e) => { s.notice = e.target.value; syncSave(); });
   $('#a-tipon').addEventListener('change', (e) => { s.tips.enabled = e.target.checked; rerender(); });
   $('#a-tips').addEventListener('input', (e) => { const a = e.target.value.split(',').map((x) => Math.round(+x.replace(/[^\d.]/g, ''))).filter((x) => x > 0); if (a.length) s.tips.amounts = a; syncSave(); });
-  $('#a-ribbons').addEventListener('input', (e) => { s.ribbonColors = e.target.value.split(',').map((x) => x.trim()).filter(Boolean); syncSave(); });
-  $$('[data-addonprice]', box).forEach((inp) => inp.addEventListener('input', () => { const n = Math.round(+inp.value); if (inp.value !== '' && n >= 0) s.addonPrices[inp.dataset.addonprice] = n; syncSave(); }));
+  $('#aoAdd').onclick = () => { s.addons.push({ id: 'a-' + Math.random().toString(36).slice(2, 8), name: '', price: null, price8: null, for: 'all', choices: [], on: true }); rerender(); const n = $$('[data-ao$=":name"]', box); n[n.length - 1]?.focus(); };
+  $$('[data-ao]', box).forEach((inp) => inp.addEventListener(inp.tagName === 'SELECT' || inp.type === 'checkbox' ? 'change' : 'input', () => {
+    const [i, k] = inp.dataset.ao.split(':'), a = s.addons[+i]; if (!a) return;
+    if (k === 'on') { a.on = inp.checked; inp.closest('.ao').classList.toggle('is-off', !a.on); }
+    else if (k === 'price' || k === 'price8') { const n = Math.round(+inp.value); a[k] = inp.value === '' || !(n >= 0) ? null : n; }
+    else if (k === 'choices') a.choices = inp.value.split(',').map((x) => x.trim()).filter(Boolean);
+    else if (k === 'for') { a.for = inp.value; if (a.for === 'bars') a.price8 = null; rerender(); return; }
+    else a[k] = inp.value;
+    syncSave();
+  }));
+  $$('[data-aodel]', box).forEach((b) => b.addEventListener('click', () => { const a = s.addons[+b.dataset.aodel]; if (!a || !confirm(`Delete the “${a.name || 'new'}” add-on? (To hide it for a while, switch it off instead.)`)) return; s.addons.splice(+b.dataset.aodel, 1); rerender(); }));
   $('#a-req').addEventListener('change', (e) => { s.requirePayment = e.target.checked; rerender(); });
   $$('[data-pay]', box).forEach((inp) => inp.addEventListener('input', () => { s.payment[inp.dataset.pay] = inp.value.trim(); syncSave(); }));
   $('#a-qr').addEventListener('change', async (e) => {
@@ -1419,6 +1431,8 @@ async function admSave(box, okMsg = 'Saved! Customers see the changes right away
     if (s.pickup.mapUrl && !/^https:\/\//.test(s.pickup.mapUrl)) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('The map link should start with https://'); $('#a-map').focus(); return false; }
     const bad = s.extraProducts.find((x) => !x.name.trim() || !(x.price4 > 0));
     if (bad) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('Each new product needs a name and a price.'); return false; }
+    const badAo = s.addons.findIndex((a) => !String(a.name || '').trim() || a.price == null);
+    if (badAo >= 0) { adm.busy = false; b.textContent = 'Save changes'; syncSave(); toast('Each add-on needs a name and a price (₱0 is fine).'); $$('[data-ao$=":name"]')[badAo]?.scrollIntoView({ block: 'center' }); return false; }
     let j; try { j = await adminCall('save', { settings: s, productImages: adm.pimgs, ...(adm.qrImage ? { qrImage: adm.qrImage } : {}) }); } catch { j = { ok: false, error: 'Can’t reach the website right now. Please try again.' }; }
     adm.busy = false; b.textContent = 'Save changes';
     if (!j.ok) { if (/password/i.test(j.error || '')) { adm.pw = ''; sstore.set('so_admin', ''); } toast(j.error || 'Couldn’t save. Please try again.'); syncSave(); return false; }
@@ -1660,6 +1674,13 @@ async function loadShopSettings() {
 function refreshCart() { const before = cart.items.length; cart.items = cart.items.filter((i) => findVariant(findProduct(i.pid), i.vid) && !findProduct(i.pid).soldOut); if (cart.items.length !== before) cart.save(); }
 
 
+
+/* ───────────── photo protection ─────────────
+   Blocks the right-click / long-press menu ("Save image") and dragging on photos everywhere except the owner page.
+   (Nothing can stop a screenshot, but this stops one-tap saving.) */
+const isPhoto = (el) => el && (el.tagName === 'IMG' || el.closest?.('.pol, .cnote__photo, .card__media, .gallery, .lb__fig, .line__img, .pd, .stage, .bakebox, .tok'));
+document.addEventListener('contextmenu', (e) => { if (!location.hash.startsWith('#/admin') && isPhoto(e.target)) e.preventDefault(); });
+document.addEventListener('dragstart', (e) => { if (!location.hash.startsWith('#/admin') && e.target?.tagName === 'IMG') e.preventDefault(); });
 
 /* ───────────── Photo Dump + Sweet Confessions ───────────── */
 const WALL = { data: null, at: 0 };
@@ -1953,6 +1974,7 @@ function route() {
     default: html = viewNotFound();
   }
   document.title = title;
+  document.body.classList.toggle('is-admin', a === 'admin');
   app.innerHTML = html;
   after?.();
   initEffects();
